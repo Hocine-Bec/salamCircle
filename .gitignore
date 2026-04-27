@@ -427,3 +427,10 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+backend/.idea/.idea.salamCircle/.idea/.gitignore
+backend/.idea/.idea.salamCircle/.idea/.name
+backend/.idea/.idea.salamCircle/.idea/copilot.data.migration.agent.xml
+backend/.idea/.idea.salamCircle/.idea/copilot.data.migration.ask2agent.xml
+backend/.idea/.idea.salamCircle/.idea/encodings.xml
+backend/.idea/.idea.salamCircle/.idea/indexLayout.xml
+backend/.idea/.idea.salamCircle/.idea/vcs.xml
