@@ -1,0 +1,6 @@
+@salamCircle_HostAddress = http://localhost:5239
+
+GET {{salamCircle_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
