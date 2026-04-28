@@ -15,5 +15,7 @@ public enum LogEventType
     ReminderSent,
     QueueShuffled,
     CircleCreated,
-    CircleClosed
+    CircleClosed, 
+
+    EmergencyDisbursed
 }

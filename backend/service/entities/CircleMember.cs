@@ -12,6 +12,8 @@ public class CircleMember : BaseEntity
     public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
     public DateTime? RemovedAt { get; set; }
 
+    public bool HasPausedThisCycle { get; set; } = false;
+
     // Navigation
     public Circle Circle { get; set; } = null!;
     public User User { get; set; } = null!;
