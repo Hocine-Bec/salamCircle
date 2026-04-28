@@ -1,0 +1,53 @@
+using Microsoft.EntityFrameworkCore;
+using infrastructure.data;
+using service.entities;
+using service.enums;
+using service.interfaces.repositories;
+
+namespace infrastructure.repositories;
+
+public class EmergencyRequestRepository : IEmergencyRequestRepository
+{
+    private readonly AppDbContext _context;
+
+    public EmergencyRequestRepository(AppDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<EmergencyRequest?> GetByIdAsync(Guid id)
+        => await _context.EmergencyRequests.FirstOrDefaultAsync(r => r.Id == id);
+
+    public async Task<List<EmergencyRequest>> GetByCircleIdAsync(Guid circleId)
+        => await _context.EmergencyRequests
+            .Where(r => r.CircleId == circleId)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+
+    public async Task<bool> HasPendingRequestAsync(Guid memberId)
+        => await _context.EmergencyRequests.AnyAsync(r => r.RequestedById == memberId && r.Status == EmergencyStatus.Pending);
+
+    public async Task<EmergencyRequest> CreateAsync(EmergencyRequest request)
+    {
+        _context.EmergencyRequests.Add(request);
+        await _context.SaveChangesAsync();
+        return request;
+    }
+
+    public async Task<EmergencyRequest> UpdateAsync(EmergencyRequest request)
+    {
+        _context.EmergencyRequests.Update(request);
+        await _context.SaveChangesAsync();
+        return request;
+    }
+
+    public async Task DeleteAsync(Guid id)
+    {
+        var request = await _context.EmergencyRequests.FirstOrDefaultAsync(r => r.Id == id);
+        if (request is not null)
+        {
+            _context.EmergencyRequests.Remove(request);
+            await _context.SaveChangesAsync();
+        }
+    }
+}
