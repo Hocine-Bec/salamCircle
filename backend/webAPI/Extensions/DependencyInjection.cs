@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<ICircleMemberRepository, CircleMemberRepository>();
         services.AddScoped<ITransparencyLogRepository, TransparencyLogRepository>();
         services.AddScoped<IEmergencyRequestRepository, EmergencyRequestRepository>();
+        services.AddScoped<INotificationRepository, NotificationRepository>();
 
 
 
@@ -31,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<ICircleMemberService, CircleMemberService>();
         services.AddScoped<ITransparencyLogService, TransparencyLogService>();
         services.AddScoped<IEmergencyRequestService, EmergencyRequestService>();
+        services.AddScoped<INotificationService, NotificationService>();
 
         return services;
     }
