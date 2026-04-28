@@ -4,6 +4,7 @@ namespace service.interfaces.repositories;
 
 public interface INotificationRepository
 {
+    Task<Notification?> GetByIdAsync(Guid id);
     Task<List<Notification>> GetByUserIdAsync(Guid userId);
     Task<int> CountUnreadByUserIdAsync(Guid userId);
     Task<Notification> CreateAsync(Notification notification);
