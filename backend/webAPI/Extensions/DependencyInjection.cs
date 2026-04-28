@@ -20,9 +20,17 @@ public static class DependencyInjection
 
         // Repositories
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<ICircleMemberRepository, CircleMemberRepository>();
+        services.AddScoped<ITransparencyLogRepository, TransparencyLogRepository>();
+        services.AddScoped<IEmergencyRequestRepository, EmergencyRequestRepository>();
+
+
 
         // Services
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<ICircleMemberService, CircleMemberService>();
+        services.AddScoped<ITransparencyLogService, TransparencyLogService>();
+        services.AddScoped<IEmergencyRequestService, EmergencyRequestService>();
 
         return services;
     }
