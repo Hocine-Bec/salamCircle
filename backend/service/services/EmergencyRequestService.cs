@@ -7,6 +7,8 @@ namespace service.services;
 
 public class EmergencyRequestService : IEmergencyRequestService
 {
+
+    private readonly ICircleRepository _circleRepository;
     private readonly IEmergencyRequestRepository _emergencyRequestRepository;
     private readonly ICircleMemberRepository _circleMemberRepository;
     private readonly ITransparencyLogService _transparencyLogService;
@@ -14,11 +16,13 @@ public class EmergencyRequestService : IEmergencyRequestService
     public EmergencyRequestService(
         IEmergencyRequestRepository emergencyRequestRepository,
         ICircleMemberRepository circleMemberRepository,
-        ITransparencyLogService transparencyLogService)
+        ITransparencyLogService transparencyLogService,
+        ICircleRepository circleRepository)
     {
         _emergencyRequestRepository = emergencyRequestRepository;
         _circleMemberRepository = circleMemberRepository;
         _transparencyLogService = transparencyLogService;
+        _circleRepository = circleRepository;
     }
 
     public async Task<List<EmergencyRequest>> GetCircleRequestsAsync(Guid circleId, Guid requestingUserId)
@@ -90,6 +94,12 @@ public class EmergencyRequestService : IEmergencyRequestService
         if (request.Status != EmergencyStatus.Pending)
             throw new InvalidOperationException("Request is not pending.");
 
+        var circle = await _circleRepository.GetByIdAsync(request.CircleId)
+            ?? throw new KeyNotFoundException($"Circle with id '{request.CircleId}' not found.");
+
+        if (circle.ImamId != imamId)
+            throw new UnauthorizedAccessException("Only the Imam may approve emergency requests.");
+
         request.Status = EmergencyStatus.Approved;
         request.ReviewedById = imamId;
         request.ReviewedAt = DateTime.UtcNow;
@@ -124,6 +134,12 @@ public class EmergencyRequestService : IEmergencyRequestService
         if (request.Status != EmergencyStatus.Pending)
             throw new InvalidOperationException("Request is not pending.");
 
+            var circle = await _circleRepository.GetByIdAsync(request.CircleId)
+            ?? throw new KeyNotFoundException($"Circle with id '{request.CircleId}' not found.");
+
+        if (circle.ImamId != imamId)
+            throw new UnauthorizedAccessException("Only the Imam may approve emergency requests.");
+
         request.Status = EmergencyStatus.Rejected;
         request.ReviewedById = imamId;
         request.ReviewedAt = DateTime.UtcNow;
@@ -155,6 +171,12 @@ public class EmergencyRequestService : IEmergencyRequestService
 
         if (request.Status != EmergencyStatus.Approved)
             throw new InvalidOperationException("Request must be approved before disbursement.");
+
+            var circle = await _circleRepository.GetByIdAsync(request.CircleId)
+            ?? throw new KeyNotFoundException($"Circle with id '{request.CircleId}' not found.");
+
+        if (circle.ImamId != imamId)
+            throw new UnauthorizedAccessException("Only the Imam may approve emergency requests.");
 
         await _transparencyLogService.LogAsync(
             request.CircleId,

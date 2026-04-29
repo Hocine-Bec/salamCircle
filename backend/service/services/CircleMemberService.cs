@@ -81,6 +81,8 @@ public class CircleMemberService : ICircleMemberService
         return createdMember;
     }
 
+    // Recalculates how many members contribute per month based on circle size,
+    //  then notifies everyone if the number goes up.
     private async Task UpdateContributorsPerMonthAsync(Guid circleId)
     {
         var circle = await _circleRepository.GetByIdAsync(circleId)
@@ -199,6 +201,9 @@ public class CircleMemberService : ICircleMemberService
             targetId: requestingUserId);
     }
 
+
+    // Rotates the queue by moving the first member to the end — used by the Imam when needed
+    // someone needs to go earlier/later
     public async Task ShuffleQueueAsync(Guid circleId, Guid imamId)
     {
         if (circleId == Guid.Empty)
@@ -211,7 +216,8 @@ public class CircleMemberService : ICircleMemberService
         if (members is null || members.Count == 0)
             throw new KeyNotFoundException($"No members found for circle '{circleId}'.");
 
-        var imam = members.FirstOrDefault(m => m.Id == imamId)
+        
+        var imam = members.FirstOrDefault(m => m.UserId == imamId)
             ?? throw new KeyNotFoundException($"Imam with id '{imamId}' is not a member of circle '{circleId}'.");
 
         var orderedMembers = members.OrderBy(m => m.QueuePosition).ToList();
@@ -232,6 +238,7 @@ public class CircleMemberService : ICircleMemberService
             actorId: imamId);
     }
 
+    // Returns the full ordered list of active members sorted by QueuePosition
     public async Task<List<CircleMember>> GetContributionQueueAsync(Guid circleId, Guid requestingUserId)
     {
         if (circleId == Guid.Empty)
@@ -250,6 +257,8 @@ public class CircleMemberService : ICircleMemberService
             .ToList();
     }
 
+
+    // Re-sequences QueuePosition values after a member leaves, so there are no gaps.
     public async Task CompactQueuePositionsAsync(Guid circleId)
     {
         if (circleId == Guid.Empty)

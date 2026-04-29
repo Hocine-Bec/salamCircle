@@ -11,18 +11,25 @@ public class ContributionCycleService : IContributionCycleService
     private readonly IContributionCycleRepository _cycleRepository;
     private readonly ICircleRepository _circleRepository;
 
+    private readonly ICircleMemberRepository _circleMemberRepository;
+
     public ContributionCycleService(
         IContributionCycleRepository cycleRepository,
-        ICircleRepository circleRepository)
+        ICircleRepository circleRepository,
+        ICircleMemberRepository circleMemberRepository)
     {
         _cycleRepository = cycleRepository;
         _circleRepository = circleRepository;
+        _circleMemberRepository = circleMemberRepository;
     }
 
     public async Task<ContributionCycle> GetActiveCycleAsync(Guid circleId, Guid requestingUserId)
     {
         if (circleId == Guid.Empty)
             throw new ArgumentException("Circle id cannot be empty.");
+
+            if (!await _circleMemberRepository.IsMemberAsync(circleId, requestingUserId))
+    throw new KeyNotFoundException($"Requesting user '{requestingUserId}' is not a member of circle '{circleId}'.");
 
         var cycle = await _cycleRepository.GetActiveByCircleIdAsync(circleId)
             ?? throw new KeyNotFoundException("No active cycle found.");
@@ -76,6 +83,15 @@ public class ContributionCycleService : IContributionCycleService
             ContributorsPerCycle = circle.ContributorsPerMonth,
             Status = CycleStatus.Active
         };
+
+        // After closing the old cycle, reset pause flags for all active members
+        var members = await _circleMemberRepository.GetByCircleIdAsync(circleId);
+        foreach (var member in members.Where(m => m.Status == MemberStatus.Active))
+        {
+            member.HasPausedThisCycle = false;
+            member.Status = MemberStatus.Active; // re-activate paused members for new cycle
+            await _circleMemberRepository.UpdateAsync(member);
+        }
 
         return await _cycleRepository.CreateAsync(nextCycle);
     }

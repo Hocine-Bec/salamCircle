@@ -9,15 +9,21 @@ public class ReminderService : IReminderService
 {
     private readonly IReminderRepository _reminderRepository;
     private readonly IContributionCycleRepository _cycleRepository;
+    private readonly ICircleRepository _circleRepository;
+    private readonly ICircleMemberRepository _circleMemberRepository;
     private readonly ITransparencyLogService _transparencyLogService;
 
     public ReminderService(
         IReminderRepository reminderRepository,
         IContributionCycleRepository cycleRepository,
+        ICircleRepository circleRepository,
+        ICircleMemberRepository circleMemberRepository,
         ITransparencyLogService transparencyLogService)
     {
         _reminderRepository = reminderRepository;
         _cycleRepository = cycleRepository;
+        _circleRepository = circleRepository;
+        _circleMemberRepository = circleMemberRepository;
         _transparencyLogService = transparencyLogService;
     }
 
@@ -32,14 +38,20 @@ public class ReminderService : IReminderService
         if (imamId == Guid.Empty)
             throw new ArgumentException("Imam id cannot be empty.", nameof(imamId));
 
-        var existingCount = await _reminderRepository
-            .CountByCycleAndMemberAsync(cycleId, targetMemberId);
+        var cycle = await _cycleRepository.GetByIdAsync(cycleId)
+            ?? throw new KeyNotFoundException($"Contribution cycle with id '{cycleId}' not found.");
 
+        var circle = await _circleRepository.GetByIdAsync(cycle.CircleId)
+            ?? throw new KeyNotFoundException($"Circle with id '{cycle.CircleId}' not found.");
+
+        if (circle.ImamId != imamId)
+            throw new UnauthorizedAccessException("Only the Imam may send reminders.");
+
+        var existingCount = await _reminderRepository.CountByCycleAndMemberAsync(cycleId, targetMemberId);
         if (existingCount >= 3)
-            throw new InvalidOperationException(
-                "Maximum reminders reached for this member in this cycle.");
+            throw new InvalidOperationException("Maximum reminders reached for this member in this cycle.");
 
-        var reminder = new service.entities.Reminder
+        var reminder = new Reminder
         {
             CycleId = cycleId,
             SentToId = targetMemberId,
@@ -48,11 +60,8 @@ public class ReminderService : IReminderService
 
         var created = await _reminderRepository.CreateAsync(reminder);
 
-        var cycle = await _cycleRepository.GetByIdAsync(cycleId)
-            ?? throw new KeyNotFoundException($"Contribution cycle with id '{cycleId}' not found.");
-
         await _transparencyLogService.LogAsync(
-            cycle.CircleId,
+            circle.Id,
             LogEventType.ReminderSent,
             $"Imam '{imamId}' sent a reminder to member '{targetMemberId}' in cycle '{cycleId}'.",
             actorId: imamId,
@@ -60,9 +69,7 @@ public class ReminderService : IReminderService
             referenceId: created.Id);
     }
 
-    public async Task<List<service.entities.Reminder>> GetMemberRemindersAsync(
-        Guid memberId,
-        Guid requestingUserId)
+    public async Task<List<Reminder>> GetMemberRemindersAsync(Guid memberId, Guid requestingUserId)
     {
         if (memberId == Guid.Empty)
             throw new ArgumentException("Member id cannot be empty.", nameof(memberId));
@@ -70,7 +77,10 @@ public class ReminderService : IReminderService
         if (requestingUserId == Guid.Empty)
             throw new ArgumentException("Requesting user id cannot be empty.", nameof(requestingUserId));
 
-        if (memberId != requestingUserId)
+        var member = await _circleMemberRepository.GetByIdAsync(memberId)
+            ?? throw new KeyNotFoundException($"Member with id '{memberId}' not found.");
+
+        if (member.UserId != requestingUserId)
             throw new UnauthorizedAccessException("Members may only view their own reminders.");
 
         return await _reminderRepository.GetByMemberAsync(memberId);
