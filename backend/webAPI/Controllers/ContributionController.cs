@@ -16,54 +16,87 @@ public class ContributionController : ControllerBase
         _service = service;
     }
 
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(Guid id)
-    {
-        var contribution = await _service.GetByIdAsync(id);
-
-        if (contribution is null)
-            return NotFound();
-
-        return Ok(ToDto(contribution));
-    }
-
     [HttpGet("cycle/{cycleId}")]
-    public async Task<IActionResult> GetByCycle(Guid cycleId)
+    public async Task<IActionResult> GetByCycle(Guid cycleId, [FromQuery] Guid requestingUserId)
     {
-        var result = await _service.GetByCycleIdAsync(cycleId);
-        return Ok(result.Select(ToDto));
-    }
-
-    [HttpGet("member/{memberId}")]
-    public async Task<IActionResult> GetByMember(Guid memberId)
-    {
-        var result = await _service.GetByMemberIdAsync(memberId);
-        return Ok(result.Select(ToDto));
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> Create(ContributionDto dto)
-    {
-        var contribution = new Contribution
+        try
         {
-            CycleId = dto.CycleId,
-            CircleId = dto.CircleId,
-            MemberId = dto.MemberId,
-            Amount = dto.Amount,
-            Status = dto.Status,
-            ContributedAt = dto.ContributedAt
-        };
-
-        var created = await _service.CreateAsync(contribution);
-
-        return Ok(ToDto(created));
+            var result = await _service.GetCycleContributionsAsync(cycleId, requestingUserId);
+            return Ok(result.Select(ToDto));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(Guid id)
+    [HttpGet("member/{circleId}")]
+    public async Task<IActionResult> GetByMember(Guid circleId, [FromQuery] Guid requestingUserId)
     {
-        await _service.DeleteAsync(id);
-        return NoContent();
+        try
+        {
+            var result = await _service.GetMemberContributionHistoryAsync(circleId, requestingUserId);
+            return Ok(result.Select(ToDto));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("submit")]
+    public async Task<IActionResult> SubmitContribution(SubmitContributionRequest request)
+    {
+        try
+        {
+            // TODO: replace RequestingUserId with JWT claim on that DTO field
+            var contribution = await _service.SubmitContributionAsync(
+                request.CycleId,
+                request.Amount,
+                request.RequestingUserId);
+
+            return CreatedAtAction(nameof(GetByCycle), new { cycleId = contribution.CycleId, requestingUserId = request.RequestingUserId }, ToDto(contribution));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     private static ContributionDto ToDto(Contribution c)
