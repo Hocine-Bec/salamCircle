@@ -28,6 +28,13 @@ public class ContributionCycleRepository : IContributionCycleRepository
                 c.CircleId == circleId &&
                 c.Status == CycleStatus.Active);
 
+    public async Task<ContributionCycle?> GetByCircleAndMonthAsync(Guid circleId, int month, int year)
+        => await _context.ContributionCycles
+            .FirstOrDefaultAsync(c =>
+                c.CircleId == circleId &&
+                c.Month == month &&
+                c.Year == year);
+
     public async Task<List<ContributionCycle>> GetByCircleIdAsync(Guid circleId)
         => await _context.ContributionCycles
             .Where(c => c.CircleId == circleId)
