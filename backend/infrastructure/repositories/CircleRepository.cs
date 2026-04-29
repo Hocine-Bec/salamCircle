@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using infrastructure.data;
 using service.entities;
+using service.enums;
 using service.interfaces.repositories;
 
 namespace infrastructure.repositories;
@@ -20,6 +21,21 @@ public class CircleRepository : ICircleRepository
             .Include(c => c.Members)
             .Include(c => c.Cycles)
             .FirstOrDefaultAsync(c => c.Id == id);
+
+    public async Task<List<Circle>> GetAllAsync()
+        => await _context.Circles
+            .Include(c => c.Imam)
+            .Include(c => c.Members)
+            .Include(c => c.Cycles)
+            .ToListAsync();
+
+    public async Task<List<Circle>> GetByImamIdAsync(Guid imamId)
+        => await _context.Circles
+            .Include(c => c.Imam)
+            .Include(c => c.Members)
+            .Include(c => c.Cycles)
+            .Where(c => c.ImamId == imamId)
+            .ToListAsync();
 
     public async Task<List<Circle>> GetByUserIdAsync(Guid userId)
         => await _context.Circles
@@ -41,5 +57,15 @@ public class CircleRepository : ICircleRepository
         _context.Circles.Update(circle);
         await _context.SaveChangesAsync();
         return circle;
+    }
+
+    public async Task DeleteAsync(Guid id)
+    {
+        var circle = await _context.Circles.FindAsync(id);
+        if (circle is not null)
+        {
+            _context.Circles.Remove(circle);
+            await _context.SaveChangesAsync();
+        }
     }
 }

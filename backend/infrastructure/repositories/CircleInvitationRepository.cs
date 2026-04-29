@@ -14,6 +14,12 @@ public class CircleInvitationRepository : ICircleInvitationRepository
         _context = context;
     }
 
+
+    public async Task<List<CircleInvitation>> GetByCircleIdAsync(Guid circleId)
+    => await _context.CircleInvitations
+        .Where(i => i.CircleId == circleId)
+        .ToListAsync();
+        
     public async Task<CircleInvitation?> GetByIdAsync(Guid id)
         => await _context.CircleInvitations
             .Include(i => i.Circle)

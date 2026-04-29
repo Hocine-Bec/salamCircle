@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using infrastructure.data;
 using service.entities;
+using service.enums;
 using service.interfaces.repositories;
 
 namespace infrastructure.repositories;
