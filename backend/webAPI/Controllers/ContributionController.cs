@@ -17,7 +17,9 @@ public class ContributionController : ControllerBase
     }
 
     [HttpGet("cycle/{cycleId}")]
-    public async Task<IActionResult> GetByCycle(Guid cycleId, [FromQuery] Guid requestingUserId)
+    public async Task<IActionResult> GetByCycle(Guid cycleId, 
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        [FromQuery] Guid requestingUserId)
     {
         try
         {
@@ -43,7 +45,9 @@ public class ContributionController : ControllerBase
     }
 
     [HttpGet("member/{circleId}")]
-    public async Task<IActionResult> GetByMember(Guid circleId, [FromQuery] Guid requestingUserId)
+    public async Task<IActionResult> GetByMember(Guid circleId, 
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        [FromQuery] Guid requestingUserId)
     {
         try
         {

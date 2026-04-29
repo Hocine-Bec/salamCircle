@@ -19,6 +19,7 @@ public class SwapRequestsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<SwapRequestDto>>> GetOpenSwapRequests(
         Guid circleId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid requestingUserId)
     {
         try
@@ -40,6 +41,7 @@ public class SwapRequestsController : ControllerBase
     public async Task<ActionResult<SwapRequestDto>> PostSwapRequest(
         Guid circleId,
         [FromQuery] Guid cycleId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid requestingUserId)
     {
         try
@@ -85,6 +87,7 @@ public class SwapRequestsController : ControllerBase
     public async Task<ActionResult<SwapRequestDto>> AcceptSwapRequest(
         Guid circleId,
         Guid swapRequestId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid requestingUserId)
     {
         try

@@ -21,6 +21,7 @@ public class ReminderController : ControllerBase
     public async Task<ActionResult> SendReminder(
         [FromQuery] Guid cycleId,
         [FromQuery] Guid targetMemberId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid imamId)
     {
         try
@@ -37,6 +38,7 @@ public class ReminderController : ControllerBase
     [HttpGet("member/{memberId:guid}")]
     public async Task<ActionResult<List<ReminderDto>>> GetMemberReminders(
         Guid memberId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid requestingUserId)
     {
         try

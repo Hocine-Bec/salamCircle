@@ -20,6 +20,7 @@ public class ContributionCycleController : ControllerBase
     [HttpGet("active/{circleId:guid}")]
     public async Task<ActionResult<ContributionCycleDto>> GetActiveCycle(
         Guid circleId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid requestingUserId)
     {
         try
@@ -36,6 +37,7 @@ public class ContributionCycleController : ControllerBase
     [HttpGet("circle/{circleId:guid}")]
     public async Task<ActionResult<List<ContributionCycleDto>>> GetAllCycles(
         Guid circleId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid requestingUserId)
     {
         try
@@ -52,6 +54,7 @@ public class ContributionCycleController : ControllerBase
     [HttpPost("start-next/{circleId:guid}")]
     public async Task<ActionResult<ContributionCycleDto>> StartNextCycle(
         Guid circleId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid imamId)
     {
         try

@@ -22,6 +22,7 @@ public class CircleMembersController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<CircleMemberDto>>> GetMembers(
         Guid circleId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid requestingUserId)
     {
         var members = await _circleMemberService.GetCircleMembersAsync(circleId, requestingUserId);
@@ -32,6 +33,7 @@ public class CircleMembersController : ControllerBase
     [HttpGet("queue")]
     public async Task<ActionResult<List<CircleMemberDto>>> GetQueue(
         Guid circleId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid requestingUserId)
     {
         var queue = await _circleMemberService.GetContributionQueueAsync(circleId, requestingUserId);
@@ -43,6 +45,7 @@ public class CircleMembersController : ControllerBase
     public async Task<IActionResult> PauseMember(
         Guid circleId,
         Guid memberId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid requestingUserId)
     {
         try
@@ -70,6 +73,7 @@ public class CircleMembersController : ControllerBase
     public async Task<IActionResult> ExitCircle(
         Guid circleId,
         Guid memberId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid requestingUserId)
     {
         try
@@ -96,6 +100,7 @@ public class CircleMembersController : ControllerBase
     public async Task<IActionResult> RemoveMember(
         Guid circleId,
         Guid memberId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid imamId)
     {
         try
@@ -118,6 +123,7 @@ public class CircleMembersController : ControllerBase
     [HttpPost("queue/shuffle")]
     public async Task<IActionResult> ShuffleQueue(
         Guid circleId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid imamId)
         // later: can add more verification on the requester (imam or system)
     {
@@ -137,14 +143,14 @@ public class CircleMembersController : ControllerBase
     }
 
     // POST: api/circles/{circleId}/members/queue/recalculate
-    [HttpPost("queue/recalculate")]
-    public async Task<IActionResult> RecalculateQueue(Guid circleId)
+    [HttpPost("queue/compact")]
+    public async Task<IActionResult> CompactQueue(Guid circleId)
     {
         // later: can add more verification on the requester (imam or system)
 
         try
         {
-            await _circleMemberService.RecalculateContributorsPerMonthAsync(circleId);
+            await _circleMemberService.CompactQueuePositionsAsync(circleId);
             return NoContent();
         }
         catch (ArgumentException ex)

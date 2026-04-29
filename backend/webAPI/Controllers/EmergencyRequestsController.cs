@@ -19,6 +19,7 @@ public class EmergencyRequestsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<EmergencyRequestDto>>> GetCircleRequests(
         Guid circleId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid requestingUserId)
     {
         try
@@ -40,6 +41,7 @@ public class EmergencyRequestsController : ControllerBase
     public async Task<ActionResult<EmergencyRequestDto>> SubmitRequest(
         Guid circleId,
         EmergencyRequestDto dto,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid requestingUserId)
     {
         try
@@ -71,6 +73,7 @@ public class EmergencyRequestsController : ControllerBase
     public async Task<ActionResult<EmergencyRequestDto>> ApproveRequest(
         Guid circleId,
         Guid requestId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid imamId)
     {
         try
@@ -97,6 +100,7 @@ public class EmergencyRequestsController : ControllerBase
         Guid circleId,
         Guid requestId,
         [FromQuery] string rejectionReason,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid imamId)
     {
         try
@@ -122,6 +126,7 @@ public class EmergencyRequestsController : ControllerBase
     public async Task<IActionResult> DisburseEmergencyFunds(
         Guid circleId,
         Guid requestId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid imamId)
     {
         try

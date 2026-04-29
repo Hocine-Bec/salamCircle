@@ -20,6 +20,7 @@ public class TransparencyLogsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<TransparencyLogDto>>> GetCircleLog(
         Guid circleId,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid requestingUserId)
     {
         try
@@ -41,6 +42,7 @@ public class TransparencyLogsController : ControllerBase
     public async Task<ActionResult<List<TransparencyLogDto>>> GetCircleLogByType(
         Guid circleId,
         [FromQuery] LogEventType eventType,
+        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid requestingUserId)
     {
         try
