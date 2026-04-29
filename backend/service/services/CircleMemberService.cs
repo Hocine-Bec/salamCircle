@@ -8,13 +8,19 @@ namespace service.services;
 public class CircleMemberService : ICircleMemberService
 {
     private readonly ICircleMemberRepository _circleMemberRepository;
+    private readonly ICircleRepository _circleRepository;
+    private readonly INotificationService _notificationService;
     private readonly ITransparencyLogService _transparencyLogService;
 
     public CircleMemberService(
         ICircleMemberRepository circleMemberRepository,
+        ICircleRepository circleRepository,
+        INotificationService notificationService,
         ITransparencyLogService transparencyLogService)
     {
         _circleMemberRepository = circleMemberRepository;
+        _circleRepository = circleRepository;
+        _notificationService = notificationService;
         _transparencyLogService = transparencyLogService;
     }
 
@@ -30,6 +36,84 @@ public class CircleMemberService : ICircleMemberService
             throw new KeyNotFoundException($"Requesting user '{requestingUserId}' is not a member of circle '{circleId}'.");
 
         return await _circleMemberRepository.GetByCircleIdAsync(circleId);
+    }
+
+    public async Task<CircleMember> AddMemberAsync(Guid circleId, Guid userId, Guid imamId)
+    {
+        if (circleId == Guid.Empty)
+            throw new ArgumentException("Circle id cannot be empty.", nameof(circleId));
+
+        if (userId == Guid.Empty)
+            throw new ArgumentException("User id cannot be empty.", nameof(userId));
+
+        if (imamId == Guid.Empty)
+            throw new ArgumentException("Imam id cannot be empty.", nameof(imamId));
+
+        var circle = await _circleRepository.GetByIdAsync(circleId)
+            ?? throw new KeyNotFoundException($"Circle with id '{circleId}' not found.");
+
+        if (circle.ImamId != imamId)
+            throw new UnauthorizedAccessException("Only the imam may add members.");
+
+        if (await _circleMemberRepository.IsMemberAsync(circleId, userId))
+            throw new InvalidOperationException("User is already an active member of the circle.");
+
+        var maxPosition = await _circleMemberRepository.GetMaxQueuePositionAsync(circleId);
+        var newMember = new CircleMember
+        {
+            CircleId = circleId,
+            UserId = userId,
+            QueuePosition = maxPosition + 1,
+            Status = MemberStatus.Active,
+            JoinedAt = DateTime.UtcNow
+        };
+
+        var createdMember = await _circleMemberRepository.CreateAsync(newMember);
+        await UpdateContributorsPerMonthAsync(circleId);
+
+        await _transparencyLogService.LogAsync(
+            circleId,
+            LogEventType.MemberJoined,
+            $"Member '{userId}' joined the circle.",
+            actorId: imamId,
+            targetId: userId);
+
+        return createdMember;
+    }
+
+    private async Task UpdateContributorsPerMonthAsync(Guid circleId)
+    {
+        var circle = await _circleRepository.GetByIdAsync(circleId)
+            ?? throw new KeyNotFoundException($"Circle with id '{circleId}' not found.");
+
+        var activeCount = (await _circleMemberRepository.GetByCircleIdAsync(circleId))
+            .Count(m => m.Status == MemberStatus.Active);
+
+        var newValue = Math.Max(1, activeCount / 10);
+        if (newValue == circle.ContributorsPerMonth)
+            return;
+
+        var oldValue = circle.ContributorsPerMonth;
+        circle.ContributorsPerMonth = newValue;
+        await _circleRepository.UpdateAsync(circle);
+
+        if (newValue > oldValue)
+        {
+            var activeMembers = (await _circleMemberRepository.GetByCircleIdAsync(circleId))
+                .Where(m => m.Status == MemberStatus.Active)
+                .ToList();
+
+            foreach (var member in activeMembers)
+            {
+                await _notificationService.SendAsync(
+                    member.UserId,
+                    circleId,
+                    NotificationType.CircleUpdated   ,
+                    "Monthly contributors updated",
+                    $"The number of monthly contributors in your circle has increased to {newValue}."
+                );
+            }
+        }
     }
 
     public async Task RemoveMemberAsync(Guid circleId, Guid memberId, Guid imamId)
@@ -54,7 +138,8 @@ public class CircleMemberService : ICircleMemberService
         member.RemovedAt = DateTime.UtcNow;
         await _circleMemberRepository.UpdateAsync(member);
 
-        // TODO: recalculate queue positions after removal (US-20)
+        await UpdateContributorsPerMonthAsync(circleId);
+        await CompactQueuePositionsAsync(circleId);
 
         await _transparencyLogService.LogAsync(
             circleId,
@@ -82,6 +167,7 @@ public class CircleMemberService : ICircleMemberService
         member.Status = MemberStatus.Paused;
         member.HasPausedThisCycle = true;
         await _circleMemberRepository.UpdateAsync(member);
+        // Member remains in queue; pause only skips this cycle's contribution.
         await _transparencyLogService.LogAsync(
             circleId,
             LogEventType.MemberPaused,
@@ -103,6 +189,8 @@ public class CircleMemberService : ICircleMemberService
 
         member.Status = MemberStatus.Exited;
         await _circleMemberRepository.UpdateAsync(member);
+        await UpdateContributorsPerMonthAsync(circleId);
+        await CompactQueuePositionsAsync(circleId);
         await _transparencyLogService.LogAsync(
             circleId,
             LogEventType.MemberExited,
@@ -162,7 +250,7 @@ public class CircleMemberService : ICircleMemberService
             .ToList();
     }
 
-    public async Task RecalculateContributorsPerMonthAsync(Guid circleId)
+    public async Task CompactQueuePositionsAsync(Guid circleId)
     {
         if (circleId == Guid.Empty)
             throw new ArgumentException("Circle id cannot be empty.", nameof(circleId));

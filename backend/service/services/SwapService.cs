@@ -9,16 +9,25 @@ public class SwapService : ISwapService
 {
     private readonly ISwapRequestRepository _swapRequestRepository;
     private readonly ICircleMemberRepository _circleMemberRepository;
+    private readonly ICircleRepository _circleRepository;
+    private readonly IContributionCycleRepository _cycleRepository;
     private readonly ITransparencyLogService _transparencyLogService;
+    private readonly INotificationService _notificationService;
 
     public SwapService(
         ISwapRequestRepository swapRequestRepository,
         ICircleMemberRepository circleMemberRepository,
-        ITransparencyLogService transparencyLogService)
+        ICircleRepository circleRepository,
+        IContributionCycleRepository cycleRepository,
+        ITransparencyLogService transparencyLogService,
+        INotificationService notificationService)
     {
         _swapRequestRepository = swapRequestRepository;
         _circleMemberRepository = circleMemberRepository;
+        _circleRepository = circleRepository;
+        _cycleRepository = cycleRepository;
         _transparencyLogService = transparencyLogService;
+        _notificationService = notificationService;
     }
 
     public async Task<List<SwapRequest>> GetOpenSwapRequestsAsync(Guid circleId, Guid requestingUserId)
@@ -32,9 +41,11 @@ public class SwapService : ISwapService
         if (!await _circleMemberRepository.IsMemberAsync(circleId, requestingUserId))
             throw new KeyNotFoundException($"Requesting user '{requestingUserId}' is not a member of circle '{circleId}'.");
 
-        // TODO: resolve cycleId from circleId using current active ContributionCycle logic
-        var placeholderCycleId = Guid.Empty;
-        return await _swapRequestRepository.GetOpenByCycleIdAsync(placeholderCycleId);
+        var activeCycle = await _cycleRepository.GetActiveByCircleIdAsync(circleId);
+        if (activeCycle is null)
+            return new List<SwapRequest>();
+
+        return await _swapRequestRepository.GetOpenByCycleIdAsync(activeCycle.Id);
     }
 
     public async Task<SwapRequest> PostSwapRequestAsync(Guid cycleId, Guid requestingUserId)
@@ -45,19 +56,22 @@ public class SwapService : ISwapService
         if (requestingUserId == Guid.Empty)
             throw new ArgumentException("Requesting user id cannot be empty.", nameof(requestingUserId));
 
-        var swapCount = await _swapRequestRepository.CountByMemberAndCycleAsync(requestingUserId, cycleId);
+        var cycle = await _cycleRepository.GetByIdAsync(cycleId)
+            ?? throw new KeyNotFoundException($"Contribution cycle with id '{cycleId}' not found.");
+
+        var member = await _circleMemberRepository.GetByCircleAndUserAsync(cycle.CircleId, requestingUserId)
+            ?? throw new KeyNotFoundException($"Member '{requestingUserId}' not found in circle '{cycle.CircleId}'.");
+
+        var swapCount = await _swapRequestRepository.CountByMemberAndCycleAsync(member.Id, cycleId);
         if (swapCount >= 3)
             throw new InvalidOperationException("Member has reached the maximum swap limit of 3 for this cycle.");
 
-        // TODO: resolve circleId from cycleId using ContributionCycle entity
-        var placeholderCircleId = Guid.Empty;
-
         var request = new SwapRequest
         {
-            CircleId = placeholderCircleId,
+            CircleId = cycle.CircleId,
             CycleId = cycleId,
-            RequesterId = requestingUserId,
-            RequesterOriginalPosition = 0, // TODO: fetch from CircleMember
+            RequesterId = member.Id,
+            RequesterOriginalPosition = member.QueuePosition,
             Status = SwapStatus.Open
         };
 
@@ -73,42 +87,58 @@ public class SwapService : ISwapService
         return created;
     }
 
-    public async Task<SwapRequest> AcceptSwapRequestAsync(Guid swapRequestId, Guid requestingUserId)
-    {
-        if (swapRequestId == Guid.Empty)
-            throw new ArgumentException("Swap request id cannot be empty.", nameof(swapRequestId));
+   public async Task<SwapRequest> AcceptSwapRequestAsync(Guid swapRequestId, Guid requestingUserId)
+{
+    if (swapRequestId == Guid.Empty)
+        throw new ArgumentException("Swap request id cannot be empty.", nameof(swapRequestId));
 
-        if (requestingUserId == Guid.Empty)
-            throw new ArgumentException("Requesting user id cannot be empty.", nameof(requestingUserId));
+    if (requestingUserId == Guid.Empty)
+        throw new ArgumentException("Requesting user id cannot be empty.", nameof(requestingUserId));
 
-        var request = await _swapRequestRepository.GetByIdAsync(swapRequestId)
-            ?? throw new KeyNotFoundException($"Swap request with id '{swapRequestId}' not found.");
+    var request = await _swapRequestRepository.GetByIdAsync(swapRequestId)
+        ?? throw new KeyNotFoundException($"Swap request with id '{swapRequestId}' not found.");
 
-        if (request.Status != SwapStatus.Open)
-            throw new InvalidOperationException("Swap request is no longer open.");
+    if (request.Status != SwapStatus.Open)
+        throw new InvalidOperationException("Swap request is no longer open.");
 
-        if (requestingUserId == request.RequesterId)
-            throw new InvalidOperationException("Member cannot accept their own swap request.");
+    var acceptorMember = await _circleMemberRepository.GetByCircleAndUserAsync(request.CircleId, requestingUserId)
+        ?? throw new KeyNotFoundException($"Member '{requestingUserId}' not found in circle '{request.CircleId}'.");
 
-        request.AcceptorId = requestingUserId;
-        request.AcceptorOriginalPosition = 0; // TODO: fetch from CircleMember
-        request.Status = SwapStatus.Accepted;
-        request.AcceptedAt = DateTime.UtcNow;
+    if (acceptorMember.Id == request.RequesterId)
+        throw new InvalidOperationException("Member cannot accept their own swap request.");
 
-        // TODO: swap the two members' QueuePositions in CircleMember table
+    var requesterMember = await _circleMemberRepository.GetByIdAsync(request.RequesterId)
+        ?? throw new KeyNotFoundException($"Requester member with id '{request.RequesterId}' not found.");
 
-        var updated = await _swapRequestRepository.UpdateAsync(request);
+    request.AcceptorId = acceptorMember.Id;
+    request.AcceptorOriginalPosition = acceptorMember.QueuePosition;
+    request.Status = SwapStatus.Accepted;
+    request.AcceptedAt = DateTime.UtcNow;
 
-        await _transparencyLogService.LogAsync(
-            request.CircleId,
-            LogEventType.SwapAccepted,
-            $"Member '{requestingUserId}' accepted swap request '{swapRequestId}' from member '{request.RequesterId}'.",
-            actorId: requestingUserId,
-            targetId: request.RequesterId,
-            referenceId: swapRequestId);
+    var tempPosition = requesterMember.QueuePosition;
+    requesterMember.QueuePosition = acceptorMember.QueuePosition;
+    acceptorMember.QueuePosition = tempPosition;
 
-        return updated;
-    }
+    requesterMember.SwapCount++;
+    acceptorMember.SwapCount++;
+
+    await _circleMemberRepository.UpdateAsync(requesterMember);
+    await _circleMemberRepository.UpdateAsync(acceptorMember);
+    await _swapRequestRepository.UpdateAsync(request);
+
+    await CheckSwapWarningAsync(request.CircleId, requesterMember.Id);
+    await CheckSwapWarningAsync(request.CircleId, acceptorMember.Id);
+
+    await _transparencyLogService.LogAsync(
+        request.CircleId,
+        LogEventType.SwapAccepted,
+        $"Member '{requestingUserId}' accepted swap request '{swapRequestId}' from member '{request.RequesterId}'.",
+        actorId: requestingUserId,
+        targetId: request.RequesterId,
+        referenceId: swapRequestId);
+
+    return request;
+}
 
 
     // This method checks is member reached 3 swaps in the current cycle
@@ -122,10 +152,24 @@ public class SwapService : ISwapService
         if (memberId == Guid.Empty)
             throw new ArgumentException("Member id cannot be empty.", nameof(memberId));
 
-        // TODO: resolve current cycleId from circleId using ContributionCycle logic
-        var placeholderCycleId = Guid.Empty;
+        var activeCycle = await _cycleRepository.GetActiveByCircleIdAsync(circleId);
+        if (activeCycle is null)
+            return false;
 
-        // TODO: later, use CountByMemberAndCycleAsync and return true if count >= 3
-        return false;
+        var swapCount = await _swapRequestRepository.CountByMemberAndCycleAsync(memberId, activeCycle.Id);
+        if (swapCount < 3)
+            return false;
+
+        var circle = await _circleRepository.GetByIdAsync(circleId)
+            ?? throw new KeyNotFoundException($"Circle with id '{circleId}' not found.");
+
+        await _notificationService.SendAsync(
+            circle.ImamId,
+            circleId,
+            NotificationType.MemberFlagged,
+            "Swap warning",
+            $"Warning: Member '{memberId}' has made 3 or more swap requests this cycle.");
+
+        return true;
     }
 }

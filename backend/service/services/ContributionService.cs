@@ -7,21 +7,24 @@ namespace service.services;
 
 public class ContributionService : IContributionService
 {
-    private readonly IContributionRepository _contributionRepository   ;
+    private readonly IContributionRepository _contributionRepository;
     private readonly IContributionCycleRepository _cycleRepository;
     private readonly ICircleRepository _circleRepository;
     private readonly ICircleMemberRepository _circleMemberRepository;
+    private readonly ITransparencyLogService _transparencyLogService;
 
     public ContributionService(
         IContributionRepository repository,
         IContributionCycleRepository cycleRepository,
         ICircleRepository circleRepository,
-        ICircleMemberRepository circleMemberRepository)
+        ICircleMemberRepository circleMemberRepository,
+        ITransparencyLogService transparencyLogService)
     {
         _contributionRepository = repository;
         _cycleRepository = cycleRepository;
         _circleRepository = circleRepository;
         _circleMemberRepository = circleMemberRepository;
+        _transparencyLogService = transparencyLogService;
     }
 
     public async Task<Contribution> SubmitContributionAsync(Guid cycleId, decimal amount, Guid requestingUserId)
@@ -52,9 +55,10 @@ public class ContributionService : IContributionService
         if (activeMembers.Count == 0)
             throw new InvalidOperationException("No active members found for the circle.");
 
-        var offset = ((cycle.CycleNumber - 1) * circle.ContributorsPerMonth) % activeMembers.Count;
-        var slots = activeMembers.Skip(offset).Take(circle.ContributorsPerMonth).ToList();
+        var offset = ((cycle.CycleNumber - 1) * cycle.ContributorsPerCycle) % activeMembers.Count;
+        var slots = activeMembers.Skip(offset).Take(cycle.ContributorsPerCycle).ToList();
 
+        // TODO: handle wrap-around when offset + ContributorsPerCycle exceeds member count
         if (!slots.Any(m => m.Id == member.Id))
             throw new InvalidOperationException("It is not your turn to contribute this cycle.");
 
@@ -74,7 +78,15 @@ public class ContributionService : IContributionService
             ContributedAt = DateTime.UtcNow
         };
 
-        return await _contributionRepository.CreateAsync(contribution);
+        var createdContribution = await _contributionRepository.CreateAsync(contribution);
+
+        await _transparencyLogService.LogAsync(
+            circle.Id,
+            LogEventType.ContributionMade,
+            $"Member '{requestingUserId}' contributed {amount} in cycle '{cycleId}'.",
+            actorId: requestingUserId);
+
+        return createdContribution;
     }
 
     public async Task<List<Contribution>> GetMemberContributionHistoryAsync(Guid circleId, Guid requestingUserId)
@@ -119,7 +131,6 @@ public class ContributionService : IContributionService
         if (!await _circleMemberRepository.IsMemberAsync(circleId, requestingUserId))
             throw new KeyNotFoundException($"Requesting user '{requestingUserId}' is not a member of circle '{circleId}'.");
 
-        var cycles = await _cycleRepository.GetByCircleIdAsync(circleId);
-         return await _contributionRepository.GetTotalByCircleIdAsync(circleId);
+        return await _contributionRepository.GetTotalByCircleIdAsync(circleId);
     }
 }

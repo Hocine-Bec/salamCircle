@@ -73,6 +73,7 @@ public class ContributionCycleService : IContributionCycleService
             CycleNumber = allCycles.Count + 1,
             Month = month,
             Year = year,
+            ContributorsPerCycle = circle.ContributorsPerMonth,
             Status = CycleStatus.Active
         };
 
