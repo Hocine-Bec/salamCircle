@@ -16,11 +16,7 @@ public class ContributionRepository : IContributionRepository
     }
 
     public async Task<Contribution?> GetByIdAsync(Guid id)
-        => await _context.Contributions
-            .Include(c => c.Circle)
-            .Include(c => c.Member)
-            .Include(c => c.Cycle)
-            .FirstOrDefaultAsync(c => c.Id == id);
+    => await _context.Contributions.FirstOrDefaultAsync(c => c.Id == id);
 
     public async Task<Contribution?> GetByCycleAndMemberAsync(Guid cycleId, Guid memberId)
         => await _context.Contributions
@@ -64,13 +60,6 @@ public class ContributionRepository : IContributionRepository
         return contribution;
     }
 
-    public async Task DeleteAsync(Guid id)
-    {
-        var contribution = await _context.Contributions.FirstOrDefaultAsync(x => x.Id == id);
-        if (contribution is not null)
-        {
-            _context.Contributions.Remove(contribution);
-            await _context.SaveChangesAsync();
-        }
-    }
+    public Task DeleteAsync(Guid id)
+    => throw new NotSupportedException("Contributions cannot be deleted. They are permanent financial records.");
 }

@@ -41,13 +41,6 @@ public class SwapRequestRepository : ISwapRequestRepository
         return swapRequest;
     }
 
-    public async Task DeleteAsync(Guid id)
-    {
-        var swapRequest = await _context.SwapRequests.FirstOrDefaultAsync(s => s.Id == id);
-        if (swapRequest is not null)
-        {
-            _context.SwapRequests.Remove(swapRequest);
-            await _context.SaveChangesAsync();
-        }
-    }
+    public Task DeleteAsync(Guid id)
+        => throw new NotSupportedException("Swap requests cannot be deleted. They are part of the audit trail.");
 }

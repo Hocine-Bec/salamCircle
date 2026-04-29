@@ -17,10 +17,7 @@ public class ContributionCycleRepository : IContributionCycleRepository
     }
 
     public async Task<ContributionCycle?> GetByIdAsync(Guid id)
-        => await _context.ContributionCycles
-            .Include(c => c.Circle)
-            .Include(c => c.Contributions)
-            .FirstOrDefaultAsync(c => c.Id == id);
+    => await _context.ContributionCycles.FirstOrDefaultAsync(c => c.Id == id);
 
     public async Task<ContributionCycle?> GetActiveByCircleIdAsync(Guid circleId)
         => await _context.ContributionCycles

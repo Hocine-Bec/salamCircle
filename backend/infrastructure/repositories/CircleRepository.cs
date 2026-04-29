@@ -17,27 +17,21 @@ public class CircleRepository : ICircleRepository
 
     public async Task<Circle?> GetByIdAsync(Guid id)
         => await _context.Circles
-            .Include(c => c.Imam)
-            .Include(c => c.Members)
-            .Include(c => c.Cycles)
-            .FirstOrDefaultAsync(c => c.Id == id);
+            .Include(c => c.Imam)  // keep — useful for Imam name display
+        .   FirstOrDefaultAsync(c => c.Id == id);
 
     public async Task<List<Circle>> GetAllAsync()
         => await _context.Circles
             .Include(c => c.Imam)
-            .Include(c => c.Members)
-            .Include(c => c.Cycles)
             .ToListAsync();
 
     public async Task<List<Circle>> GetByImamIdAsync(Guid imamId)
         => await _context.Circles
             .Include(c => c.Imam)
-            .Include(c => c.Members)
-            .Include(c => c.Cycles)
             .Where(c => c.ImamId == imamId)
             .ToListAsync();
 
-    public async Task<List<Circle>> GetByUserIdAsync(Guid userId)
+        public async Task<List<Circle>> GetByUserIdAsync(Guid userId)
         => await _context.Circles
             .Include(c => c.Imam)
             .Include(c => c.Members)

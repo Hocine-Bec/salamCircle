@@ -41,13 +41,6 @@ public class EmergencyRequestRepository : IEmergencyRequestRepository
         return request;
     }
 
-    public async Task DeleteAsync(Guid id)
-    {
-        var request = await _context.EmergencyRequests.FirstOrDefaultAsync(r => r.Id == id);
-        if (request is not null)
-        {
-            _context.EmergencyRequests.Remove(request);
-            await _context.SaveChangesAsync();
-        }
-    }
+    public Task DeleteAsync(Guid id)
+    => throw new NotSupportedException("Emergency requests cannot be deleted. They are permanent financial records.");
 }
