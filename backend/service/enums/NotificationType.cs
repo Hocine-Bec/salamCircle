@@ -11,5 +11,6 @@ public enum NotificationType
     EmergencyApproved,
     EmergencyRejected,
     MemberFlagged,
-    CircleClosed
+    CircleClosed,
+    CircleUpdated   
 }

@@ -5,6 +5,8 @@ namespace service.interfaces.repositories;
 public interface ICircleInvitationRepository
 {
     Task<CircleInvitation?> GetByIdAsync(Guid id);
+
+    Task<List<CircleInvitation>> GetByCircleIdAsync(Guid circleId);
     Task<List<CircleInvitation>> GetPendingByUserIdAsync(Guid userId);
     Task<bool> ExistsAsync(Guid circleId, Guid userId);
     Task<CircleInvitation> CreateAsync(CircleInvitation invitation);
