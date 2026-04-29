@@ -1,6 +1,6 @@
 ﻿using service.enums;
 
-namespace webAPI.DTOs;
+namespace webAPI.DTOs.Responses;
 
 public class CircleInvitationDto
 {

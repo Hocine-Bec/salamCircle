@@ -1,4 +1,4 @@
-namespace webAPI.DTOs;
+namespace webAPI.DTOs.Requests;
 
 public class LoginRequest
 {

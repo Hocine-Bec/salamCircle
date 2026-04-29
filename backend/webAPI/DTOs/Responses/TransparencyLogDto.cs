@@ -1,4 +1,5 @@
-namespace webAPI.DTOs;
+// DTOs/Responses/TransparencyLogDto.cs
+namespace webAPI.DTOs.Responses;
 
 public class TransparencyLogDto
 {

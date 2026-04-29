@@ -1,4 +1,7 @@
-namespace webAPI.DTOs;
+// DTOs/Responses/NotificationDto.cs
+using service.enums;
+
+namespace webAPI.DTOs.Responses;
 
 public class NotificationDto
 {
