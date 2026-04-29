@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using infrastructure.data;
 using service.entities;
+using service.enums;
 using service.interfaces.repositories;
 
 namespace infrastructure.repositories;
@@ -25,6 +26,15 @@ public class ContributionRepository : IContributionRepository
         => await _context.Contributions
             .FirstOrDefaultAsync(c => c.CycleId == cycleId && c.MemberId == memberId);
 
+
+    
+    public async Task<List<Contribution>> GetByCircleAndMemberAsync(Guid circleId, Guid memberId)
+        => await _context.Contributions
+            .Where(c => c.CircleId == circleId && c.MemberId == memberId)
+            .OrderByDescending(c => c.ContributedAt)
+            .ToListAsync();
+
+
     public async Task<List<Contribution>> GetByCycleIdAsync(Guid cycleId)
         => await _context.Contributions
             .Where(c => c.CycleId == cycleId)
@@ -37,8 +47,8 @@ public class ContributionRepository : IContributionRepository
 
     public async Task<decimal> GetTotalByCircleIdAsync(Guid circleId)
         => await _context.Contributions
-            .Where(c => c.CircleId == circleId)
-            .SumAsync(c => c.Amount);
+        .Where(c => c.CircleId == circleId && c.Status == ContributionStatus.Completed)
+        .SumAsync(c => c.Amount); 
 
     public async Task<Contribution> CreateAsync(Contribution contribution)
     {
