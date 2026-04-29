@@ -3,8 +3,6 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using BCrypt.Net;
-using service.DTOs;
 using service.entities;
 using service.interfaces.repositories;
 using service.interfaces.services;
@@ -22,50 +20,44 @@ public class AuthService : IAuthService
         _configuration = configuration;
     }
 
-    public async Task<string> RegisterAsync(RegisterRequest request)
+    public async Task<string> RegisterAsync(string name, string email, string password)
     {
-        if (request is null)
-            throw new ArgumentNullException(nameof(request));
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be empty.", nameof(name));
 
-        if (string.IsNullOrWhiteSpace(request.Name))
-            throw new ArgumentException("Name cannot be empty.", nameof(request));
+        if (string.IsNullOrWhiteSpace(email))
+            throw new ArgumentException("Email cannot be empty.", nameof(email));
 
-        if (string.IsNullOrWhiteSpace(request.Email))
-            throw new ArgumentException("Email cannot be empty.", nameof(request));
+        if (string.IsNullOrWhiteSpace(password))
+            throw new ArgumentException("Password cannot be empty.", nameof(password));
 
-        if (string.IsNullOrWhiteSpace(request.Password))
-            throw new ArgumentException("Password cannot be empty.", nameof(request));
-
-        if (await _userRepository.ExistsByEmailAsync(request.Email))
-            throw new InvalidOperationException($"Email '{request.Email}' is already in use.");
+        if (await _userRepository.ExistsByEmailAsync(email))
+            throw new InvalidOperationException($"Email '{email}' is already in use.");
 
         var user = new User
         {
-            Name = request.Name,
-            Email = request.Email,
+            Name = name,
+            Email = email,
             Phone = string.Empty,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password)
         };
 
         await _userRepository.CreateAsync(user);
         return GenerateJwtToken(user.Id, user.Email, user.Name);
     }
 
-    public async Task<string> LoginAsync(LoginRequest request)
+    public async Task<string> LoginAsync(string email, string password)
     {
-        if (request is null)
-            throw new ArgumentNullException(nameof(request));
+        if (string.IsNullOrWhiteSpace(email))
+            throw new ArgumentException("Email cannot be empty.", nameof(email));
 
-        if (string.IsNullOrWhiteSpace(request.Email))
-            throw new ArgumentException("Email cannot be empty.", nameof(request));
+        if (string.IsNullOrWhiteSpace(password))
+            throw new ArgumentException("Password cannot be empty.", nameof(password));
 
-        if (string.IsNullOrWhiteSpace(request.Password))
-            throw new ArgumentException("Password cannot be empty.", nameof(request));
-
-        var user = await _userRepository.GetByEmailAsync(request.Email)
+        var user = await _userRepository.GetByEmailAsync(email)
             ?? throw new InvalidOperationException("Invalid email or password.");
 
-        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
             throw new InvalidOperationException("Invalid email or password.");
 
         return GenerateJwtToken(user.Id, user.Email, user.Name);

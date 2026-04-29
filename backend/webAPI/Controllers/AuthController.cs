@@ -1,11 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using service.interfaces.services;
+
 using webAPI.DTOs.Requests;
 
 namespace webAPI.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/auth")]
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
@@ -16,17 +17,11 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-    public async Task<IActionResult> Register(RegisterRequest request)
+    public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     {
         try
         {
-            var token = await _authService.RegisterAsync(new service.DTOs.RegisterRequest
-            {
-                Name = request.Name,
-                Email = request.Email,
-                Password = request.Password
-            });
-
+            var token = await _authService.RegisterAsync(dto.Name, dto.Email, dto.Password);
             return Ok(new { token });
         }
         catch (ArgumentException ex)
@@ -40,16 +35,11 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login(LoginRequest request)
+    public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
         try
         {
-            var token = await _authService.LoginAsync(new service.DTOs.LoginRequest
-            {
-                Email = request.Email,
-                Password = request.Password
-            });
-
+            var token = await _authService.LoginAsync(dto.Email, dto.Password);
             return Ok(new { token });
         }
         catch (ArgumentException ex)

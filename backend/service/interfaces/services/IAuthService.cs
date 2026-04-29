@@ -1,9 +1,7 @@
-using service.DTOs;
-
 namespace service.interfaces.services;
 
 public interface IAuthService
 {
-    Task<string> RegisterAsync(RegisterRequest request);
-    Task<string> LoginAsync(LoginRequest request);
+    Task<string> RegisterAsync(string name, string email, string password);
+    Task<string> LoginAsync(string email, string password);
 }
