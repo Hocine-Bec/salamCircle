@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
-using webAPI.DTOs;
+using webAPI.DTOs.Requests;
+using webAPI.DTOs.Responses;
 
 namespace webAPI.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/users")]
 public class UserController : ControllerBase
 {
     private readonly IUserService _userService;
@@ -44,7 +45,7 @@ public class UserController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<UserDto>> Create(UserDto dto)
+    public async Task<ActionResult<UserDto>> Create([FromBody] CreateUserDto dto)
     {
         try
         {
@@ -57,23 +58,24 @@ public class UserController : ControllerBase
             var created = await _userService.CreateAsync(user);
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, ToDto(created));
         }
-        catch (Exception ex)
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<UserDto>> Update(Guid id, UserDto dto)
+    public async Task<ActionResult<UserDto>> Update(Guid id, [FromBody] UpdateUserDto dto)
     {
-        if (id != dto.Id)
-            return BadRequest(new { message = "URL id does not match body id." });
-
         try
         {
             var user = new User
             {
-                Id = dto.Id,
+                Id = id,
                 Name = dto.Name,
                 Phone = dto.Phone
             };
@@ -81,14 +83,22 @@ public class UserController : ControllerBase
             var updated = await _userService.UpdateAsync(user);
             return Ok(ToDto(updated));
         }
-        catch (Exception ex)
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<ActionResult> Delete(Guid id)
+    public async Task<IActionResult> Delete(Guid id)
     {
         try
         {

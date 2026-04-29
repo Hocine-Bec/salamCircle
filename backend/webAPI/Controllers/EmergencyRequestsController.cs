@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
-using webAPI.DTOs;
+using webAPI.DTOs.Requests;
+using webAPI.DTOs.Responses;
 
 namespace webAPI.Controllers;
 
@@ -40,9 +41,7 @@ public class EmergencyRequestsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<EmergencyRequestDto>> SubmitRequest(
         Guid circleId,
-        EmergencyRequestDto dto,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid requestingUserId)
+        [FromBody] SubmitEmergencyRequestDto dto)
     {
         try
         {
@@ -51,9 +50,12 @@ public class EmergencyRequestsController : ControllerBase
                 dto.AmountRequested,
                 dto.Description,
                 dto.SupportingContext,
-                requestingUserId);
+                dto.RequestingUserId);
 
-            return CreatedAtAction(nameof(GetCircleRequests), new { circleId, requestingUserId }, ToDto(created));
+            return CreatedAtAction(
+                nameof(GetCircleRequests),
+                new { circleId, requestingUserId = dto.RequestingUserId },
+                ToDto(created));
         }
         catch (ArgumentException ex)
         {
@@ -73,7 +75,7 @@ public class EmergencyRequestsController : ControllerBase
     public async Task<ActionResult<EmergencyRequestDto>> ApproveRequest(
         Guid circleId,
         Guid requestId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        // TODO: replace with: var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid imamId)
     {
         try
@@ -89,6 +91,10 @@ public class EmergencyRequestsController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
@@ -99,13 +105,15 @@ public class EmergencyRequestsController : ControllerBase
     public async Task<ActionResult<EmergencyRequestDto>> RejectRequest(
         Guid circleId,
         Guid requestId,
-        [FromQuery] string rejectionReason,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid imamId)
+        [FromBody] RejectEmergencyRequestDto dto)
     {
         try
         {
-            var updated = await _emergencyRequestService.RejectRequestAsync(requestId, rejectionReason, imamId);
+            var updated = await _emergencyRequestService.RejectRequestAsync(
+                requestId,
+                dto.RejectionReason,
+                dto.ImamId);
+
             return Ok(ToDto(updated));
         }
         catch (ArgumentException ex)
@@ -115,6 +123,10 @@ public class EmergencyRequestsController : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
@@ -126,7 +138,7 @@ public class EmergencyRequestsController : ControllerBase
     public async Task<IActionResult> DisburseEmergencyFunds(
         Guid circleId,
         Guid requestId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        // TODO: replace with: var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         [FromQuery] Guid imamId)
     {
         try
@@ -142,24 +154,28 @@ public class EmergencyRequestsController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
     }
 
-    private static EmergencyRequestDto ToDto(EmergencyRequest request) => new()
+    private static EmergencyRequestDto ToDto(EmergencyRequest r) => new()
     {
-        Id = request.Id,
-        CircleId = request.CircleId,
-        RequestedById = request.RequestedById,
-        AmountRequested = request.AmountRequested,
-        Description = request.Description,
-        SupportingContext = request.SupportingContext,
-        Status = request.Status.ToString(),
-        ReviewedById = request.ReviewedById,
-        ReviewedAt = request.ReviewedAt,
-        RejectionReason = request.RejectionReason,
-        CreatedAt = request.CreatedAt
+        Id = r.Id,
+        CircleId = r.CircleId,
+        RequestedById = r.RequestedById,
+        AmountRequested = r.AmountRequested,
+        Description = r.Description,
+        SupportingContext = r.SupportingContext,
+        Status = r.Status.ToString(),
+        ReviewedById = r.ReviewedById,
+        ReviewedAt = r.ReviewedAt,
+        RejectionReason = r.RejectionReason,
+        CreatedAt = r.CreatedAt
     };
 }

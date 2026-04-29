@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
-using webAPI.DTOs;
+using webAPI.DTOs.Requests;
+using webAPI.DTOs.Responses;
 
 namespace webAPI.Controllers;
 
@@ -40,14 +41,15 @@ public class SwapRequestsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<SwapRequestDto>> PostSwapRequest(
         Guid circleId,
-        [FromQuery] Guid cycleId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid requestingUserId)
+        [FromBody] PostSwapRequestDto dto)
     {
         try
         {
-            var created = await _swapService.PostSwapRequestAsync(cycleId, requestingUserId);
-            return CreatedAtAction(nameof(GetOpenSwapRequests), new { circleId, requestingUserId }, ToDto(created));
+            var created = await _swapService.PostSwapRequestAsync(dto.CycleId, dto.RequestingUserId);
+            return CreatedAtAction(
+                nameof(GetOpenSwapRequests),
+                new { circleId, requestingUserId = dto.RequestingUserId },
+                ToDto(created));
         }
         catch (ArgumentException ex)
         {
@@ -60,26 +62,6 @@ public class SwapRequestsController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
-        }
-    }
-
-    [HttpGet("warning")]
-    public async Task<ActionResult> CheckSwapWarning(
-        Guid circleId,
-        [FromQuery] Guid memberId)
-    {
-        try
-        {
-            var hasWarning = await _swapService.CheckSwapWarningAsync(circleId, memberId);
-            return Ok(new { hasWarning });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
         }
     }
 
@@ -109,17 +91,17 @@ public class SwapRequestsController : ControllerBase
         }
     }
 
-    private static SwapRequestDto ToDto(SwapRequest swapRequest) => new()
+    private static SwapRequestDto ToDto(SwapRequest s) => new()
     {
-        Id = swapRequest.Id,
-        CircleId = swapRequest.CircleId,
-        CycleId = swapRequest.CycleId,
-        RequesterId = swapRequest.RequesterId,
-        AcceptorId = swapRequest.AcceptorId,
-        RequesterOriginalPosition = swapRequest.RequesterOriginalPosition,
-        AcceptorOriginalPosition = swapRequest.AcceptorOriginalPosition,
-        Status = swapRequest.Status.ToString(),
-        AcceptedAt = swapRequest.AcceptedAt,
-        CreatedAt = swapRequest.CreatedAt
+        Id = s.Id,
+        CircleId = s.CircleId,
+        CycleId = s.CycleId,
+        RequesterId = s.RequesterId,
+        AcceptorId = s.AcceptorId,
+        RequesterOriginalPosition = s.RequesterOriginalPosition,
+        AcceptorOriginalPosition = s.AcceptorOriginalPosition,
+        Status = s.Status.ToString(),
+        AcceptedAt = s.AcceptedAt,
+        CreatedAt = s.CreatedAt
     };
 }

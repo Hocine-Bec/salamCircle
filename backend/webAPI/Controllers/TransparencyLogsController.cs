@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.enums;
 using service.interfaces.services;
-using webAPI.DTOs;
+using webAPI.DTOs.Responses;
 
 namespace webAPI.Controllers;
 

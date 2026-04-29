@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using service.interfaces.services;
-using webAPI.DTOs;
+using webAPI.DTOs.Requests;
 
 namespace webAPI.Controllers;
 
