@@ -22,6 +22,10 @@ public class ContributionCycleConfiguration : IEntityTypeConfiguration<Contribut
         builder.Property(c => c.Year)
             .IsRequired();
 
+        builder.Property(c => c.ContributorsPerCycle)
+            .IsRequired()
+            .HasDefaultValue(1);
+
         builder.Property(c => c.Status)
             .IsRequired();
 
