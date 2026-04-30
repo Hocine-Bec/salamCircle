@@ -38,7 +38,7 @@ public class SwapService : ISwapService
         if (requestingUserId == Guid.Empty)
             throw new ArgumentException("Requesting user id cannot be empty.", nameof(requestingUserId));
 
-        if (!await _circleMemberRepository.IsMemberAsync(circleId, requestingUserId))
+        if (!await _circleMemberRepository.IsActiveMemberAsync(circleId, requestingUserId))
             throw new KeyNotFoundException($"Requesting user '{requestingUserId}' is not a member of circle '{circleId}'.");
 
         var activeCycle = await _cycleRepository.GetActiveByCircleIdAsync(circleId);
