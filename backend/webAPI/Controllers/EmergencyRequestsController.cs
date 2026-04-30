@@ -102,39 +102,40 @@ public class EmergencyRequestsController : ControllerBase
         }
     }
 
-    [HttpPost("{requestId:guid}/reject")]
-    public async Task<ActionResult<EmergencyRequestDto>> RejectRequest(
-        Guid circleId,
-        Guid requestId,
-        [FromBody] RejectEmergencyRequest dto)
+  [HttpPost("{requestId:guid}/reject")]
+public async Task<ActionResult<EmergencyRequestDto>> RejectRequest(
+    Guid circleId,
+    Guid requestId,
+    [FromBody] RejectEmergencyRequest dto)
+{
+    try
     {
-        try
-        {
-            var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var updated = await _emergencyRequestService.RejectRequestAsync(
-                requestId,
-                dto.RejectionReason,
-                imamId);
+        var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var updated = await _emergencyRequestService.RejectRequestAsync(
+            requestId,
+            dto.RejectionReason,
+            imamId);
 
-            return Ok(ToDto(updated));
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(403, new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        return Ok(ToDto(updated));
     }
+    catch (ArgumentException ex)
+    {
+        return BadRequest(new { message = ex.Message });
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return NotFound(new { message = ex.Message });
+    }
+    catch (UnauthorizedAccessException ex)
+    {
+        return StatusCode(403, new { message = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return BadRequest(new { message = ex.Message });
+    }
+}
+
 
     [HttpPost("{requestId:guid}/disburse")]
     public async Task<IActionResult> DisburseEmergencyFunds(Guid circleId, Guid requestId)

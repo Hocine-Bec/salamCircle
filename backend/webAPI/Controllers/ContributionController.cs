@@ -1,9 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
+using System.Security.Claims;
 using webAPI.DTOs.Requests;
 using webAPI.DTOs.Responses;
-using Microsoft.AspNetCore.Authorization;
 
 namespace webAPI.Controllers;
 
@@ -20,14 +21,11 @@ public class ContributionController : ControllerBase
     }
 
     [HttpGet("cycle/{cycleId:guid}")]
-    public async Task<IActionResult> GetByCycle(
-        Guid circleId,
-        Guid cycleId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid requestingUserId)
+    public async Task<IActionResult> GetByCycle(Guid circleId, Guid cycleId)
     {
         try
         {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _service.GetCycleContributionsAsync(cycleId, requestingUserId);
             return Ok(result.Select(ToDto));
         }
@@ -42,13 +40,11 @@ public class ContributionController : ControllerBase
     }
 
     [HttpGet("history")]
-    public async Task<IActionResult> GetMyHistory(
-        Guid circleId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid requestingUserId)
+    public async Task<IActionResult> GetMyHistory(Guid circleId)
     {
         try
         {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _service.GetMemberContributionHistoryAsync(circleId, requestingUserId);
             return Ok(result.Select(ToDto));
         }
@@ -63,13 +59,11 @@ public class ContributionController : ControllerBase
     }
 
     [HttpGet("balance")]
-    public async Task<IActionResult> GetBalance(
-        Guid circleId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid requestingUserId)
+    public async Task<IActionResult> GetBalance(Guid circleId)
     {
         try
         {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var balance = await _service.GetCircleBalanceAsync(circleId, requestingUserId);
             return Ok(new { circleId, balance });
         }
@@ -84,20 +78,19 @@ public class ContributionController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Submit(
-        Guid circleId,
-        [FromBody] SubmitContributionRequest dto)
+    public async Task<IActionResult> Submit(Guid circleId, [FromBody] SubmitContributionRequest dto)
     {
         try
         {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var contribution = await _service.SubmitContributionAsync(
                 dto.CycleId,
                 dto.Amount,
-                dto.RequestingUserId);
+                requestingUserId);
 
             return CreatedAtAction(
                 nameof(GetByCycle),
-                new { circleId, cycleId = contribution.CycleId, requestingUserId = dto.RequestingUserId },
+                new { circleId, cycleId = contribution.CycleId },
                 ToDto(contribution));
         }
         catch (ArgumentException ex)
