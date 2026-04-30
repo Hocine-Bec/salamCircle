@@ -26,9 +26,10 @@ public class ContributionConfiguration : IEntityTypeConfiguration<Contribution>
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(c => c.Circle)
-            .WithMany(c => c.Cycles.SelectMany(x => x.Contributions))
+            .WithMany()   
             .HasForeignKey(c => c.CircleId)
             .OnDelete(DeleteBehavior.Restrict);
+
 
         builder.HasOne(c => c.Member)
             .WithMany()

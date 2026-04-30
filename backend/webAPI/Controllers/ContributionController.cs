@@ -1,12 +1,18 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
-using webAPI.DTOs;
+using System.Security.Claims;
+using webAPI.DTOs.Requests;
+using webAPI.DTOs.Responses;
+using webAPI.Extensions;
+using webAPI.Mapping;
 
 namespace webAPI.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/circles/{circleId:guid}/contributions")]
+[Authorize]
 public class ContributionController : ControllerBase
 {
     private readonly IContributionService _service;
@@ -16,68 +22,92 @@ public class ContributionController : ControllerBase
         _service = service;
     }
 
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(Guid id)
+    [HttpGet("cycle/{cycleId:guid}")]
+    public async Task<IActionResult> GetByCycle(Guid circleId, Guid cycleId)
     {
-        var contribution = await _service.GetByIdAsync(id);
-
-        if (contribution is null)
-            return NotFound();
-
-        return Ok(ToDto(contribution));
+        try
+        {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _service.GetCycleContributionsAsync(cycleId, requestingUserId);
+            return Ok(result.Select(c => c.ToDto()));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
     }
 
-    [HttpGet("cycle/{cycleId}")]
-    public async Task<IActionResult> GetByCycle(Guid cycleId)
+    [HttpGet("history")]
+    public async Task<IActionResult> GetMyHistory(Guid circleId)
     {
-        var result = await _service.GetByCycleIdAsync(cycleId);
-        return Ok(result.Select(ToDto));
+        try
+        {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _service.GetMemberContributionHistoryAsync(circleId, requestingUserId);
+            return Ok(result.Select(c => c.ToDto()));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
     }
 
-    [HttpGet("member/{memberId}")]
-    public async Task<IActionResult> GetByMember(Guid memberId)
+    [HttpGet("balance")]
+    public async Task<IActionResult> GetBalance(Guid circleId)
     {
-        var result = await _service.GetByMemberIdAsync(memberId);
-        return Ok(result.Select(ToDto));
+        try
+        {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var balance = await _service.GetCircleBalanceAsync(circleId, requestingUserId);
+            return Ok(new { circleId, balance });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(ContributionDto dto)
+    public async Task<IActionResult> Submit(Guid circleId, [FromBody] SubmitContributionRequest dto)
     {
-        var contribution = new Contribution
+        try
         {
-            CycleId = dto.CycleId,
-            CircleId = dto.CircleId,
-            MemberId = dto.MemberId,
-            Amount = dto.Amount,
-            Status = dto.Status,
-            ContributedAt = dto.ContributedAt
-        };
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var contribution = await _service.SubmitContributionAsync(
+                dto.CycleId,
+                dto.Amount,
+                requestingUserId);
 
-        var created = await _service.CreateAsync(contribution);
-
-        return Ok(ToDto(created));
-    }
-
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(Guid id)
-    {
-        await _service.DeleteAsync(id);
-        return NoContent();
-    }
-
-    private static ContributionDto ToDto(Contribution c)
-    {
-        return new ContributionDto
+            return CreatedAtAction(
+                nameof(GetByCycle),
+                new { circleId, cycleId = contribution.CycleId },
+                contribution.ToDto());
+        }
+        catch (ArgumentException ex)
         {
-            Id = c.Id,
-            CycleId = c.CycleId,
-            CircleId = c.CircleId,
-            MemberId = c.MemberId,
-            Amount = c.Amount,
-            Status = c.Status,
-            ContributedAt = c.ContributedAt,
-            CreatedAt = c.CreatedAt
-        };
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
+
+
 }

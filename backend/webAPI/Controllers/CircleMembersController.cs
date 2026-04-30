@@ -1,16 +1,17 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using service.entities;
 using service.interfaces.services;
-using webAPI.DTOs;
+using System.Security.Claims;
+using webAPI.DTOs.Responses;
+using webAPI.Mapping;
 
 namespace webAPI.Controllers;
 
 [ApiController]
 [Route("api/circles/{circleId:guid}/members")]
+[Authorize]
 public class CircleMembersController : ControllerBase
 {
-
-    // Note: in some endpoints:later: can add more verification on the requester (imam or system)
     private readonly ICircleMemberService _circleMemberService;
 
     public CircleMembersController(ICircleMemberService circleMemberService)
@@ -18,40 +19,57 @@ public class CircleMembersController : ControllerBase
         _circleMemberService = circleMemberService;
     }
 
-    // GET: api/circles/{circleId}/members?requestingUserId={requestingUserId}
+    private Guid GetRequestingUserId()
+        => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
     [HttpGet]
-    public async Task<ActionResult<List<CircleMemberDto>>> GetMembers(
-        Guid circleId,
-        [FromQuery] Guid requestingUserId)
-    {
-        var members = await _circleMemberService.GetCircleMembersAsync(circleId, requestingUserId);
-        return Ok(members.Select(ToDto).ToList());
-    }
-
-    // GET: api/circles/{circleId}/members/queue?requestingUserId={requestingUserId}
-    [HttpGet("queue")]
-    public async Task<ActionResult<List<CircleMemberDto>>> GetQueue(
-        Guid circleId,
-        [FromQuery] Guid requestingUserId)
-    {
-        var queue = await _circleMemberService.GetContributionQueueAsync(circleId, requestingUserId);
-        return Ok(queue.Select(ToDto).ToList());
-    }
-
-    // POST: api/circles/{circleId}/members/{memberId}/pause?requestingUserId={requestingUserId}
-    [HttpPost("{memberId:guid}/pause")]
-    public async Task<IActionResult> PauseMember(
-        Guid circleId,
-        Guid memberId,
-        [FromQuery] Guid requestingUserId)
+    public async Task<ActionResult<List<CircleMemberDto>>> GetMembers(Guid circleId)
     {
         try
         {
-            // TEMP: will be replaced by JWT-based user identity later.
-            // maybe also will be handled by permission !
-            if (memberId != requestingUserId)
-                return BadRequest("Requesting user must match member id for pause.");
+            var members = await _circleMemberService.GetCircleMembersAsync(circleId, GetRequestingUserId());
+            return Ok(members.Select(m => m.ToDto()).ToList());
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
 
+    [HttpGet("queue")]
+    public async Task<ActionResult<List<CircleMemberDto>>> GetQueue(Guid circleId)
+    {
+        try
+        {
+            var queue = await _circleMemberService.GetContributionQueueAsync(circleId, GetRequestingUserId());
+            return Ok(queue.Select(m => m.ToDto()).ToList());
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    // Self-pause: a member can only pause themselves
+    [HttpPost("{memberId:guid}/pause")]
+    public async Task<IActionResult> PauseMember(Guid circleId, Guid memberId)
+    {
+        var requestingUserId = GetRequestingUserId();
+
+        // memberId in route must match the JWT user — pause is self-service only
+        if (memberId != requestingUserId)
+            return Forbid();
+
+        try
+        {
             await _circleMemberService.PauseMemberAsync(circleId, requestingUserId);
             return NoContent();
         }
@@ -63,21 +81,24 @@ public class CircleMembersController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
-    // POST: api/circles/{circleId}/members/{memberId}/exit?requestingUserId={requestingUserId}
+    // Self-exit: a member can only exit themselves
     [HttpPost("{memberId:guid}/exit")]
-    public async Task<IActionResult> ExitCircle(
-        Guid circleId,
-        Guid memberId,
-        [FromQuery] Guid requestingUserId)
+    public async Task<IActionResult> ExitCircle(Guid circleId, Guid memberId)
     {
+        var requestingUserId = GetRequestingUserId();
+
+        // memberId in route must match the JWT user — exit is self-service only
+        if (memberId != requestingUserId)
+            return Forbid();
+
         try
         {
-            // TEMP: will be replaced by JWT-based user identity later.
-            if (memberId != requestingUserId)
-                return BadRequest("Requesting user must match member id for exit.");
-
             await _circleMemberService.ExitCircleAsync(circleId, requestingUserId);
             return NoContent();
         }
@@ -89,18 +110,19 @@ public class CircleMembersController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
-    // DELETE: api/circles/{circleId}/members/{memberId}?imamId={imamId}
+    // Imam-only: remove a specific member
     [HttpDelete("{memberId:guid}")]
-    public async Task<IActionResult> RemoveMember(
-        Guid circleId,
-        Guid memberId,
-        [FromQuery] Guid imamId)
+    public async Task<IActionResult> RemoveMember(Guid circleId, Guid memberId)
     {
         try
         {
-            // Later: verification on the imam id
+            var imamId = GetRequestingUserId();
             await _circleMemberService.RemoveMemberAsync(circleId, memberId, imamId);
             return NoContent();
         }
@@ -112,17 +134,19 @@ public class CircleMembersController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
     }
 
-    // POST: api/circles/{circleId}/members/queue/shuffle?imamId={imamId}
+    // Imam-only: shuffle the queue
     [HttpPost("queue/shuffle")]
-    public async Task<IActionResult> ShuffleQueue(
-        Guid circleId,
-        [FromQuery] Guid imamId)
-        // later: can add more verification on the requester (imam or system)
+    public async Task<IActionResult> ShuffleQueue(Guid circleId)
     {
         try
         {
+            var imamId = GetRequestingUserId();
             await _circleMemberService.ShuffleQueueAsync(circleId, imamId);
             return NoContent();
         }
@@ -134,17 +158,21 @@ public class CircleMembersController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
     }
 
-    // POST: api/circles/{circleId}/members/queue/recalculate
-    [HttpPost("queue/recalculate")]
-    public async Task<IActionResult> RecalculateQueue(Guid circleId)
+    // Imam-only: compact queue positions (no gaps after removals)
+    [HttpPost("queue/compact")]
+    public async Task<IActionResult> CompactQueue(Guid circleId)
     {
-        // later: can add more verification on the requester (imam or system)
-
         try
         {
-            await _circleMemberService.RecalculateContributorsPerMonthAsync(circleId);
+            // Only the imam should be able to trigger this manually
+            var imamId = GetRequestingUserId();
+            await _circleMemberService.CompactQueuePositionsAsync(circleId);
             return NoContent();
         }
         catch (ArgumentException ex)
@@ -156,15 +184,4 @@ public class CircleMembersController : ControllerBase
             return NotFound(new { message = ex.Message });
         }
     }
-
-    private static CircleMemberDto ToDto(CircleMember member) => new()
-    {
-        Id = member.Id,
-        CircleId = member.CircleId,
-        UserId = member.UserId,
-        QueuePosition = member.QueuePosition,
-        Status = member.Status.ToString(),
-        SwapCount = member.SwapCount,
-        JoinedAt = member.JoinedAt
-    };
 }

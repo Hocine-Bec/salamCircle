@@ -9,7 +9,8 @@ public interface ICircleMemberRepository
     Task<List<CircleMember>> GetByCircleIdAsync(Guid circleId);
     Task<int> GetMaxQueuePositionAsync(Guid circleId);
     Task<int> CountActiveAsync(Guid circleId);
-    Task<bool> IsMemberAsync(Guid circleId, Guid userId);
+    Task<bool> IsMemberAsync(Guid circleId, Guid userId);         
+    Task<bool> IsActiveMemberAsync(Guid circleId, Guid userId);    
     Task<CircleMember> CreateAsync(CircleMember member);
     Task<CircleMember> UpdateAsync(CircleMember member);
     Task DeleteAsync(Guid id);

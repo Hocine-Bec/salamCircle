@@ -2,12 +2,17 @@ using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.enums;
 using service.interfaces.services;
-using webAPI.DTOs;
+using webAPI.DTOs.Responses;
+using Microsoft.AspNetCore.Authorization;
+using webAPI.Extensions;
+using System.Security.Claims;
+using webAPI.Mapping;
 
 namespace webAPI.Controllers;
 
 [ApiController]
 [Route("api/circles/{circleId:guid}/logs")]
+[Authorize]
 public class TransparencyLogsController : ControllerBase
 {
     private readonly ITransparencyLogService _transparencyLogService;
@@ -19,13 +24,13 @@ public class TransparencyLogsController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<List<TransparencyLogDto>>> GetCircleLog(
-        Guid circleId,
-        [FromQuery] Guid requestingUserId)
+        Guid circleId)
     {
+        var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         try
         {
             var logs = await _transparencyLogService.GetCircleLogAsync(circleId, requestingUserId);
-            return Ok(logs.Select(ToDto).ToList());
+            return Ok(logs.Select(l => l.ToDto()).ToList());
         }
         catch (ArgumentException ex)
         {
@@ -40,13 +45,13 @@ public class TransparencyLogsController : ControllerBase
     [HttpGet("filter")]
     public async Task<ActionResult<List<TransparencyLogDto>>> GetCircleLogByType(
         Guid circleId,
-        [FromQuery] LogEventType eventType,
-        [FromQuery] Guid requestingUserId)
+        [FromQuery] LogEventType eventType)
     {
+        var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         try
         {
             var logs = await _transparencyLogService.GetCircleLogByTypeAsync(circleId, eventType, requestingUserId);
-            return Ok(logs.Select(ToDto).ToList());
+            return Ok(logs.Select(l => l.ToDto()).ToList());
         }
         catch (ArgumentException ex)
         {
@@ -58,16 +63,5 @@ public class TransparencyLogsController : ControllerBase
         }
     }
 
-    private static TransparencyLogDto ToDto(TransparencyLog log) => new()
-    {
-        Id = log.Id,
-        CircleId = log.CircleId,
-        EventType = log.EventType.ToString(),
-        ActorId = log.ActorId,
-        TargetId = log.TargetId,
-        ReferenceId = log.ReferenceId,
-        Description = log.Description,
-        Metadata = log.Metadata,
-        CreatedAt = log.CreatedAt
-    };
+   
 }

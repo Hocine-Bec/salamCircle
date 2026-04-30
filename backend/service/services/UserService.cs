@@ -1,4 +1,5 @@
 using service.entities;
+using service.enums;
 using service.interfaces.repositories;
 using service.interfaces.services;
 

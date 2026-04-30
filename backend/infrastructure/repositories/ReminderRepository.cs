@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using infrastructure.data;
 using service.entities;
+using service.enums;
 using service.interfaces.repositories;
 
 namespace infrastructure.repositories;
@@ -15,12 +16,7 @@ public class ReminderRepository : IReminderRepository
     }
 
     public async Task<Reminder?> GetByIdAsync(Guid id)
-        => await _context.Reminders
-            .Include(r => r.Circle)
-            .Include(r => r.SentBy)
-            .Include(r => r.SentTo)
-            .Include(r => r.Cycle)
-            .FirstOrDefaultAsync(r => r.Id == id);
+    => await _context.Reminders.FirstOrDefaultAsync(r => r.Id == id);
 
     public async Task<List<Reminder>> GetByCycleAsync(Guid cycleId)
         => await _context.Reminders
@@ -45,15 +41,6 @@ public class ReminderRepository : IReminderRepository
         return reminder;
     }
 
-    public async Task DeleteAsync(Guid id)
-    {
-        var reminder = await _context.Reminders
-            .FirstOrDefaultAsync(r => r.Id == id);
-
-        if (reminder is not null)
-        {
-            _context.Reminders.Remove(reminder);
-            await _context.SaveChangesAsync();
-        }
-    }
+    public Task DeleteAsync(Guid id)
+    => throw new NotSupportedException("Reminders cannot be deleted. They are part of the audit trail.");
 }

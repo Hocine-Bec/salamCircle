@@ -1,12 +1,17 @@
 using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
-using webAPI.DTOs;
+using webAPI.DTOs.Responses;
+using Microsoft.AspNetCore.Authorization;
+using webAPI.Extensions;
+using System.Security.Claims;
+using webAPI.Mapping;
 
 namespace webAPI.Controllers;
 
 [ApiController]
 [Route("api/users/{userId:guid}/notifications")]
+[Authorize]
 public class NotificationsController : ControllerBase
 {
     private readonly INotificationService _notificationService;
@@ -16,27 +21,35 @@ public class NotificationsController : ControllerBase
         _notificationService = notificationService;
     }
 
+    private bool IsOwner(Guid userId)
+    {
+        var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        return requestingUserId == userId;
+    }
+
     [HttpGet]
     public async Task<ActionResult<List<NotificationDto>>> GetUserNotifications(Guid userId)
     {
+        if (!IsOwner(userId))
+            return Forbid();
+
         try
         {
             var notifications = await _notificationService.GetUserNotificationsAsync(userId);
-            return Ok(notifications.Select(ToDto).ToList());
+            return Ok(notifications.Select(n => n.ToDto()).ToList());
         }
         catch (ArgumentException ex)
         {
             return BadRequest(new { message = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
         }
     }
 
     [HttpGet("unread-count")]
     public async Task<ActionResult> GetUnreadCount(Guid userId)
     {
+        if (!IsOwner(userId))
+            return Forbid();
+
         try
         {
             var count = await _notificationService.GetUnreadCountAsync(userId);
@@ -46,15 +59,14 @@ public class NotificationsController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
     }
 
     [HttpPost("{notificationId:guid}/read")]
     public async Task<IActionResult> MarkAsRead(Guid userId, Guid notificationId)
     {
+        if (!IsOwner(userId))
+            return Forbid();
+
         try
         {
             await _notificationService.MarkAsReadAsync(notificationId, userId);
@@ -77,6 +89,9 @@ public class NotificationsController : ControllerBase
     [HttpPost("read-all")]
     public async Task<IActionResult> MarkAllAsRead(Guid userId)
     {
+        if (!IsOwner(userId))
+            return Forbid();
+
         try
         {
             await _notificationService.MarkAllAsReadAsync(userId);
@@ -86,15 +101,14 @@ public class NotificationsController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
     }
 
     [HttpDelete("{notificationId:guid}")]
     public async Task<IActionResult> DeleteNotification(Guid userId, Guid notificationId)
     {
+        if (!IsOwner(userId))
+            return Forbid();
+
         try
         {
             await _notificationService.DeleteNotificationAsync(notificationId, userId);
@@ -113,17 +127,4 @@ public class NotificationsController : ControllerBase
             return StatusCode(403, new { message = ex.Message });
         }
     }
-
-    private static NotificationDto ToDto(Notification notification) => new()
-    {
-        Id = notification.Id,
-        UserId = notification.UserId,
-        CircleId = notification.CircleId,
-        Type = notification.Type.ToString(),
-        Title = notification.Title,
-        Body = notification.Body,
-        IsRead = notification.IsRead,
-        ReadAt = notification.ReadAt,
-        CreatedAt = notification.CreatedAt
-    };
 }

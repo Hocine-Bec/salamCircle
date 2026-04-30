@@ -7,18 +7,27 @@ namespace service.services;
 
 public class EmergencyRequestService : IEmergencyRequestService
 {
+    private readonly ICircleRepository _circleRepository;
     private readonly IEmergencyRequestRepository _emergencyRequestRepository;
     private readonly ICircleMemberRepository _circleMemberRepository;
+    private readonly IContributionRepository _contributionRepository; 
     private readonly ITransparencyLogService _transparencyLogService;
+    private readonly INotificationService _notificationService;
 
     public EmergencyRequestService(
         IEmergencyRequestRepository emergencyRequestRepository,
         ICircleMemberRepository circleMemberRepository,
-        ITransparencyLogService transparencyLogService)
+        ITransparencyLogService transparencyLogService,
+        ICircleRepository circleRepository,
+        IContributionRepository contributionRepository,          
+        INotificationService notificationService)
     {
         _emergencyRequestRepository = emergencyRequestRepository;
         _circleMemberRepository = circleMemberRepository;
         _transparencyLogService = transparencyLogService;
+        _circleRepository = circleRepository;
+        _contributionRepository = contributionRepository;        
+        _notificationService = notificationService;
     }
 
     public async Task<List<EmergencyRequest>> GetCircleRequestsAsync(Guid circleId, Guid requestingUserId)
@@ -29,7 +38,8 @@ public class EmergencyRequestService : IEmergencyRequestService
         if (requestingUserId == Guid.Empty)
             throw new ArgumentException("Requesting user id cannot be empty.", nameof(requestingUserId));
 
-        if (!await _circleMemberRepository.IsMemberAsync(circleId, requestingUserId))
+        // fix: IsActiveMemberAsync
+        if (!await _circleMemberRepository.IsActiveMemberAsync(circleId, requestingUserId))
             throw new KeyNotFoundException($"Requesting user '{requestingUserId}' is not a member of circle '{circleId}'.");
 
         return await _emergencyRequestRepository.GetByCircleIdAsync(circleId);
@@ -49,11 +59,15 @@ public class EmergencyRequestService : IEmergencyRequestService
         if (string.IsNullOrWhiteSpace(description))
             throw new ArgumentException("Description cannot be empty.", nameof(description));
 
-        if (!await _circleMemberRepository.IsMemberAsync(circleId, requestingUserId))
+        // fix: IsActiveMemberAsync
+        if (!await _circleMemberRepository.IsActiveMemberAsync(circleId, requestingUserId))
             throw new KeyNotFoundException($"Requesting user '{requestingUserId}' is not a member of circle '{circleId}'.");
 
         if (await _emergencyRequestRepository.HasPendingRequestAsync(requestingUserId))
             throw new InvalidOperationException("Member already has an active emergency request.");
+
+        var circle = await _circleRepository.GetByIdAsync(circleId)
+            ?? throw new KeyNotFoundException($"Circle with id '{circleId}' not found.");
 
         var request = new EmergencyRequest
         {
@@ -73,6 +87,13 @@ public class EmergencyRequestService : IEmergencyRequestService
             $"Member '{requestingUserId}' submitted an emergency request.",
             actorId: requestingUserId);
 
+        await _notificationService.SendAsync(
+            userId: circle.ImamId,
+            circleId: circleId,
+            type: NotificationType.EmergencySubmitted,
+            title: "New emergency request submitted",
+            body: $"A member has submitted an emergency withdrawal request in circle \"{circle.Name}\". Amount requested: {amount}. Please review it.");
+
         return created;
     }
 
@@ -90,23 +111,52 @@ public class EmergencyRequestService : IEmergencyRequestService
         if (request.Status != EmergencyStatus.Pending)
             throw new InvalidOperationException("Request is not pending.");
 
+        var circle = await _circleRepository.GetByIdAsync(request.CircleId)
+            ?? throw new KeyNotFoundException($"Circle with id '{request.CircleId}' not found.");
+
+        if (circle.ImamId != imamId)
+            throw new UnauthorizedAccessException("Only the Imam may approve emergency requests.");
+
+        var member = await _circleMemberRepository.GetByIdAsync(request.RequestedById)
+            ?? throw new KeyNotFoundException($"Member with id '{request.RequestedById}' not found.");
+
         request.Status = EmergencyStatus.Approved;
         request.ReviewedById = imamId;
         request.ReviewedAt = DateTime.UtcNow;
 
         var updated = await _emergencyRequestRepository.UpdateAsync(request);
 
+        // US-16: Write a negative Contribution record so disbursement appears in history
+        var disbursement = new Contribution
+        {
+            CircleId = request.CircleId,
+            CycleId = Guid.Empty,  // not tied to a cycle
+            MemberId = member.Id,
+            Amount = -request.AmountRequested,       // negative = money going OUT
+            Status = ContributionStatus.Completed,
+            ContributedAt = DateTime.UtcNow
+        };
+        await _contributionRepository.CreateAsync(disbursement);
+
         await _transparencyLogService.LogAsync(
             request.CircleId,
             LogEventType.EmergencyApproved,
-            $"Emergency request '{requestId}' approved by Imam '{imamId}'.",
+            $"Emergency request '{requestId}' approved by Imam '{imamId}'. Amount {request.AmountRequested} disbursed.",
             actorId: imamId,
             targetId: request.RequestedById,
             referenceId: requestId);
 
+        await _notificationService.SendAsync(
+            userId: member.UserId,
+            circleId: request.CircleId,
+            type: NotificationType.EmergencyApproved,
+            title: "Your emergency request has been approved",
+            body: $"Alhamdulillah, your emergency withdrawal request in circle \"{circle.Name}\" has been approved. The funds will be disbursed to you. Barakallahu feek.");
+
         return updated;
     }
 
+    // RejectRequestAsync and DisburseEmergencyFundsAsync stay exactly the same
     public async Task<EmergencyRequest> RejectRequestAsync(Guid requestId, string rejectionReason, Guid imamId)
     {
         if (requestId == Guid.Empty)
@@ -124,6 +174,15 @@ public class EmergencyRequestService : IEmergencyRequestService
         if (request.Status != EmergencyStatus.Pending)
             throw new InvalidOperationException("Request is not pending.");
 
+        var circle = await _circleRepository.GetByIdAsync(request.CircleId)
+            ?? throw new KeyNotFoundException($"Circle with id '{request.CircleId}' not found.");
+
+        if (circle.ImamId != imamId)
+            throw new UnauthorizedAccessException("Only the Imam may reject emergency requests.");
+
+        var member = await _circleMemberRepository.GetByIdAsync(request.RequestedById)
+            ?? throw new KeyNotFoundException($"Member with id '{request.RequestedById}' not found.");
+
         request.Status = EmergencyStatus.Rejected;
         request.ReviewedById = imamId;
         request.ReviewedAt = DateTime.UtcNow;
@@ -138,6 +197,13 @@ public class EmergencyRequestService : IEmergencyRequestService
             actorId: imamId,
             targetId: request.RequestedById,
             referenceId: requestId);
+
+        await _notificationService.SendAsync(
+            userId: member.UserId,
+            circleId: request.CircleId,
+            type: NotificationType.EmergencyRejected,
+            title: "Your emergency request was not approved",
+            body: $"Your emergency withdrawal request in circle \"{circle.Name}\" was not approved. Reason: {rejectionReason}. Please contact the Imam for more details.");
 
         return updated;
     }
@@ -155,6 +221,12 @@ public class EmergencyRequestService : IEmergencyRequestService
 
         if (request.Status != EmergencyStatus.Approved)
             throw new InvalidOperationException("Request must be approved before disbursement.");
+
+        var circle = await _circleRepository.GetByIdAsync(request.CircleId)
+            ?? throw new KeyNotFoundException($"Circle with id '{request.CircleId}' not found.");
+
+        if (circle.ImamId != imamId)
+            throw new UnauthorizedAccessException("Only the Imam may disburse emergency funds.");
 
         await _transparencyLogService.LogAsync(
             request.CircleId,

@@ -1,12 +1,18 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
-using webAPI.DTOs;
+using System.Security.Claims;
+using webAPI.DTOs.Requests;
+using webAPI.DTOs.Responses;
+using webAPI.Extensions;
+using webAPI.Mapping;
 
 namespace webAPI.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/circles/{circleId:guid}/invitations")]
+[Authorize]
 public class CircleInvitationController : ControllerBase
 {
     private readonly IInvitationService _service;
@@ -16,50 +22,116 @@ public class CircleInvitationController : ControllerBase
         _service = service;
     }
 
-    [HttpPost("send")]
-    public async Task<IActionResult> Send([FromBody] CircleInvitationDto dto)
+    [HttpPost]
+    public async Task<IActionResult> Send(Guid circleId, [FromBody] SendInvitationRequest dto)
     {
-        var result = await _service.SendInvitationAsync(
-            dto.CircleId,
-            "",
-            dto.InvitedById
-        );
-
-        return Ok(ToDto(result));
-    }
-
-    [HttpGet("pending/{userId}")]
-    public async Task<IActionResult> GetPending(Guid userId)
-    {
-        var result = await _service.GetPendingInvitationsAsync(userId);
-        return Ok(result.Select(ToDto));
-    }
-
-    [HttpPost("accept/{id}")]
-    public async Task<IActionResult> Accept(Guid id, [FromQuery] Guid userId)
-    {
-        await _service.AcceptInvitationAsync(id, userId);
-        return Ok();
-    }
-
-    [HttpPost("decline/{id}")]
-    public async Task<IActionResult> Decline(Guid id, [FromQuery] Guid userId)
-    {
-        await _service.DeclineInvitationAsync(id, userId);
-        return Ok();
-    }
-
-    private static CircleInvitationDto ToDto(CircleInvitation i)
-    {
-        return new CircleInvitationDto
+        try
         {
-            Id = i.Id,
-            CircleId = i.CircleId,
-            InvitedById = i.InvitedById,
-            InvitedUserId = i.InvitedUserId,
-            Status = i.Status,
-            RespondedAt = i.RespondedAt,
-            CreatedAt = i.CreatedAt
-        };
+            var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _service.SendInvitationAsync(circleId, dto.PhoneNumber, imamId);
+            return Ok(result.ToDto());
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
     }
+
+    [HttpGet]
+    public async Task<IActionResult> GetCircleInvitations(Guid circleId)
+    {
+        try
+        {
+            var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _service.GetCircleInvitationsAsync(circleId, imamId);
+            return Ok(result.Select(i => i.ToDto()));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{invitationId:guid}/accept")]
+    public async Task<IActionResult> Accept(Guid circleId, Guid invitationId)
+    {
+        try
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await _service.AcceptInvitationAsync(invitationId, userId);
+            return Ok();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{invitationId:guid}/decline")]
+    public async Task<IActionResult> Decline(Guid circleId, Guid invitationId)
+    {
+        try
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await _service.DeclineInvitationAsync(invitationId, userId);
+            return Ok();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("pending")]
+    public async Task<IActionResult> GetPending(Guid circleId)
+    {
+        try
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _service.GetPendingInvitationsAsync(userId);
+            return Ok(result.Select(i => i.ToDto()).ToList());
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+  
 }

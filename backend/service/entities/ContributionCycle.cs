@@ -8,6 +8,7 @@ public class ContributionCycle : BaseEntity
     public int CycleNumber { get; set; }
     public int Month { get; set; }
     public int Year { get; set; }
+    public int ContributorsPerCycle { get; set; }
     public CycleStatus Status { get; set; } = CycleStatus.Active;
 
     // Navigation

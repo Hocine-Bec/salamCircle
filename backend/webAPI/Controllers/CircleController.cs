@@ -1,12 +1,18 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
-using webAPI.DTOs;
+using System.Security.Claims;
+using webAPI.DTOs.Requests;
+using webAPI.DTOs.Responses;
+using webAPI.Extensions;
+using webAPI.Mapping;
 
 namespace webAPI.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/circles")]
+[Authorize]
 public class CircleController : ControllerBase
 {
     private readonly ICircleService _circleService;
@@ -20,7 +26,7 @@ public class CircleController : ControllerBase
     public async Task<ActionResult<List<CircleDto>>> GetAll()
     {
         var circles = await _circleService.GetAllAsync();
-        return Ok(circles.Select(ToDto).ToList());
+        return Ok(circles.Select(c => c.ToDto()).ToList());
     }
 
     [HttpGet("{id:guid}")]
@@ -31,79 +37,89 @@ public class CircleController : ControllerBase
         if (circle is null)
             return NotFound(new { message = $"Circle with id '{id}' not found." });
 
-        return Ok(ToDto(circle));
+        return Ok(circle.ToDto());
     }
 
     [HttpGet("imam/{imamId:guid}")]
     public async Task<ActionResult<List<CircleDto>>> GetByImamId(Guid imamId)
     {
-        var circles = await _circleService.GetByImamIdAsync(imamId);
-        return Ok(circles.Select(ToDto).ToList());
+        try
+        {
+            var circles = await _circleService.GetByImamIdAsync(imamId);
+            return Ok(circles.Select(c => c.ToDto()).ToList());
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpPost]
-    public async Task<ActionResult<CircleDto>> Create(CircleDto dto)
+public async Task<ActionResult<CircleDto>> Create([FromBody] CreateCircleRequest dto)
+{
+    try
     {
-        try
-        {
-            var circle = new Circle
-            {
-                Name = dto.Name,
-                ImamId = dto.ImamId,
-                MinimumContribution = dto.MinimumContribution,
-                ContributorsPerMonth = dto.ContributorsPerMonth,
-                Status = dto.Status,
-                ClosedAt = dto.ClosedAt
-            };
+        var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-            var created = await _circleService.CreateAsync(circle);
-
-            return CreatedAtAction(
-                nameof(GetById),
-                new { id = created.Id },
-                ToDto(created)
-            );
-        }
-        catch (Exception ex)
+        var circle = new Circle
         {
-            return BadRequest(new { message = ex.Message });
-        }
+            Name = dto.Name,
+            ImamId = imamId,
+            MinimumContribution = dto.MinimumContribution
+        };
+
+        var created = await _circleService.CreateAsync(circle);
+        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created.ToDto());
     }
+    catch (ArgumentException ex)
+    {
+        return BadRequest(new { message = ex.Message });
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return NotFound(new { message = ex.Message });
+    }
+}
+
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<CircleDto>> Update(Guid id, CircleDto dto)
+public async Task<ActionResult<CircleDto>> Update(Guid id, [FromBody] UpdateCircleRequest dto)
+{
+    try
     {
-        if (id != dto.Id)
-            return BadRequest(new { message = "URL id does not match body id." });
-
-        try
+        var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var circle = new Circle
         {
-            var circle = new Circle
-            {
-                Id = dto.Id,
-                Name = dto.Name,
-                ImamId = dto.ImamId,
-                MinimumContribution = dto.MinimumContribution,
-                ContributorsPerMonth = dto.ContributorsPerMonth,
-                Status = dto.Status,
-                ClosedAt = dto.ClosedAt
-            };
+            Id = id,
+            Name = dto.Name,
+            MinimumContribution = dto.MinimumContribution
+        };
 
-            var updated = await _circleService.UpdateAsync(circle);
-            return Ok(ToDto(updated));
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        var updated = await _circleService.UpdateAsync(circle, imamId);
+        return Ok(updated.ToDto());
     }
+    catch (ArgumentException ex)
+    {
+        return BadRequest(new { message = ex.Message });
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return NotFound(new { message = ex.Message });
+    }
+    catch (UnauthorizedAccessException ex)
+    {
+        return StatusCode(403, new { message = ex.Message });
+    }
+}
 
-    [HttpDelete("{id:guid}")]
-    public async Task<ActionResult> Delete(Guid id)
+
+    [HttpPost("{id:guid}/close")]
+    public async Task<IActionResult> Close(Guid id)
     {
         try
         {
-            await _circleService.DeleteAsync(id);
+            var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await _circleService.CloseCircleAsync(id, imamId);
             return NoContent();
         }
         catch (ArgumentException ex)
@@ -114,17 +130,44 @@ public class CircleController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
-    private static CircleDto ToDto(Circle circle) => new()
+
+    [HttpGet("{id:guid}/dashboard")]
+public async Task<ActionResult<CircleDashboardDto>> GetDashboard(Guid id)
+{
+    try
     {
-        Id = circle.Id,
-        Name = circle.Name,
-        ImamId = circle.ImamId,
-        MinimumContribution = circle.MinimumContribution,
-        ContributorsPerMonth = circle.ContributorsPerMonth,
-        Status = circle.Status,
-        ClosedAt = circle.ClosedAt,
-        CreatedAt = circle.CreatedAt
-    };
+        var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var dashboard = await _circleService.GetDashboardAsync(id, requestingUserId);
+
+        return Ok(new CircleDashboardDto
+        {
+            CircleId    = dashboard.CircleId,
+            CircleName  = dashboard.CircleName,
+            Balance     = dashboard.Balance,
+            MemberCount = dashboard.MemberCount,
+            ContributorsPerMonth = dashboard.ContributorsPerMonth,
+            CurrentContributors  = dashboard.CurrentContributors.Select(m => m.ToDto()).ToList(),
+            NextContributors     = dashboard.NextContributors.Select(m => m.ToDto()).ToList()
+        });
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return NotFound(new { message = ex.Message });
+    }
+    catch (UnauthorizedAccessException ex)
+    {
+        return StatusCode(403, new { message = ex.Message });
+    }
+}
+
 }

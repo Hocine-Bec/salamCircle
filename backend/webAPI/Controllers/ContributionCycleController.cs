@@ -1,13 +1,17 @@
-﻿// ContributionCycleController.cs
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
-using webAPI.DTOs;
+using webAPI.DTOs.Responses;
+using Microsoft.AspNetCore.Authorization;
+using webAPI.Extensions;
+using System.Security.Claims;
+using webAPI.Mapping;
 
 namespace webAPI.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/circles/{circleId:guid}/cycles")]
+[Authorize]
 public class ContributionCycleController : ControllerBase
 {
     private readonly IContributionCycleService _cycleService;
@@ -17,62 +21,74 @@ public class ContributionCycleController : ControllerBase
         _cycleService = cycleService;
     }
 
-    [HttpGet("active/{circleId:guid}")]
+    [HttpGet("active")]
     public async Task<ActionResult<ContributionCycleDto>> GetActiveCycle(
-        Guid circleId,
-        [FromQuery] Guid requestingUserId)
+        Guid circleId)
     {
+
+        var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         try
         {
             var cycle = await _cycleService.GetActiveCycleAsync(circleId, requestingUserId);
-            return Ok(ToDto(cycle));
+            return Ok(cycle.ToDto());
         }
-        catch (Exception ex)
+        catch (ArgumentException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
     }
 
-    [HttpGet("circle/{circleId:guid}")]
+    [HttpGet]
     public async Task<ActionResult<List<ContributionCycleDto>>> GetAllCycles(
-        Guid circleId,
-        [FromQuery] Guid requestingUserId)
+        Guid circleId)
     {
+        var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         try
         {
             var cycles = await _cycleService.GetAllCyclesAsync(circleId, requestingUserId);
-            return Ok(cycles.Select(ToDto).ToList());
+            return Ok(cycles.Select(c => c.ToDto()).ToList());
         }
-        catch (Exception ex)
+        catch (ArgumentException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
     }
 
-    [HttpPost("start-next/{circleId:guid}")]
+    [HttpPost("start-next")]
     public async Task<ActionResult<ContributionCycleDto>> StartNextCycle(
-        Guid circleId,
-        [FromQuery] Guid imamId)
+        Guid circleId)
     {
+        var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         try
         {
             var cycle = await _cycleService.StartNextCycleAsync(circleId, imamId);
-            return Ok(ToDto(cycle));
+            return CreatedAtAction(nameof(GetActiveCycle), new { circleId }, cycle.ToDto());
         }
-        catch (Exception ex)
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
     }
 
-    private static ContributionCycleDto ToDto(ContributionCycle cycle) => new()
-    {
-        Id = cycle.Id,
-        CircleId = cycle.CircleId,
-        CycleNumber = cycle.CycleNumber,
-        Month = cycle.Month,
-        Year = cycle.Year,
-        Status = cycle.Status,
-        CreatedAt = cycle.CreatedAt
-    };
+    
 }

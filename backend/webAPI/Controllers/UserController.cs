@@ -1,12 +1,17 @@
 using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
-using webAPI.DTOs;
+using webAPI.DTOs.Requests;
+using webAPI.DTOs.Responses;
+using Microsoft.AspNetCore.Authorization;
+using webAPI.Extensions;
+using webAPI.Mapping;
 
 namespace webAPI.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/users")]
+[Authorize]
 public class UserController : ControllerBase
 {
     private readonly IUserService _userService;
@@ -20,7 +25,7 @@ public class UserController : ControllerBase
     public async Task<ActionResult<List<UserDto>>> GetAll()
     {
         var users = await _userService.GetAllAsync();
-        return Ok(users.Select(ToDto).ToList());
+        return Ok(users.Select(u => u.ToDto()).ToList());
     }
 
     [HttpGet("{id:guid}")]
@@ -30,7 +35,7 @@ public class UserController : ControllerBase
         if (user is null)
             return NotFound(new { message = $"User with id '{id}' not found." });
 
-        return Ok(ToDto(user));
+        return Ok(user.ToDto());
     }
 
     [HttpGet("phone/{phone}")]
@@ -40,55 +45,42 @@ public class UserController : ControllerBase
         if (user is null)
             return NotFound(new { message = $"User with phone '{phone}' not found." });
 
-        return Ok(ToDto(user));
+        return Ok(user.ToDto());
     }
 
-    [HttpPost]
-    public async Task<ActionResult<UserDto>> Create(UserDto dto)
-    {
-        try
-        {
-            var user = new User
-            {
-                Name = dto.Name,
-                Phone = dto.Phone
-            };
-
-            var created = await _userService.CreateAsync(user);
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, ToDto(created));
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
+    
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<UserDto>> Update(Guid id, UserDto dto)
+    public async Task<ActionResult<UserDto>> Update(Guid id, [FromBody] UpdateUserRequest dto)
     {
-        if (id != dto.Id)
-            return BadRequest(new { message = "URL id does not match body id." });
-
         try
         {
             var user = new User
             {
-                Id = dto.Id,
+                Id = id,
                 Name = dto.Name,
                 Phone = dto.Phone
             };
 
             var updated = await _userService.UpdateAsync(user);
-            return Ok(ToDto(updated));
+            return Ok(updated.ToDto());
         }
-        catch (Exception ex)
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
         }
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<ActionResult> Delete(Guid id)
+    public async Task<IActionResult> Delete(Guid id)
     {
         try
         {
@@ -105,11 +97,5 @@ public class UserController : ControllerBase
         }
     }
 
-    private static UserDto ToDto(User user) => new()
-    {
-        Id = user.Id,
-        Name = user.Name,
-        Phone = user.Phone,
-        CreatedAt = user.CreatedAt
-    };
+ 
 }

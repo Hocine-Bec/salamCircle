@@ -1,12 +1,18 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
-using webAPI.DTOs;
+using System.Security.Claims;
+using webAPI.DTOs.Requests;
+using webAPI.DTOs.Responses;
+using webAPI.Extensions;
+using webAPI.Mapping;
 
 namespace webAPI.Controllers;
 
 [ApiController]
 [Route("api/circles/{circleId:guid}/swap-requests")]
+[Authorize]
 public class SwapRequestsController : ControllerBase
 {
     private readonly ISwapService _swapService;
@@ -17,14 +23,13 @@ public class SwapRequestsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<SwapRequestDto>>> GetOpenSwapRequests(
-        Guid circleId,
-        [FromQuery] Guid requestingUserId)
+    public async Task<ActionResult<List<SwapRequestDto>>> GetOpenSwapRequests(Guid circleId)
     {
         try
         {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var requests = await _swapService.GetOpenSwapRequestsAsync(circleId, requestingUserId);
-            return Ok(requests.Select(ToDto).ToList());
+            return Ok(requests.Select(s => s.ToDto()).ToList());
         }
         catch (ArgumentException ex)
         {
@@ -39,13 +44,16 @@ public class SwapRequestsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<SwapRequestDto>> PostSwapRequest(
         Guid circleId,
-        [FromQuery] Guid cycleId,
-        [FromQuery] Guid requestingUserId)
+        [FromBody] CreateSwapRequest dto)
     {
         try
         {
-            var created = await _swapService.PostSwapRequestAsync(cycleId, requestingUserId);
-            return CreatedAtAction(nameof(GetOpenSwapRequests), new { circleId, requestingUserId }, ToDto(created));
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var created = await _swapService.PostSwapRequestAsync(dto.CycleId, requestingUserId);
+            return CreatedAtAction(
+                nameof(GetOpenSwapRequests),
+                new { circleId },
+                created.ToDto());
         }
         catch (ArgumentException ex)
         {
@@ -58,39 +66,19 @@ public class SwapRequestsController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
-        }
-    }
-
-    [HttpGet("warning")]
-    public async Task<ActionResult> CheckSwapWarning(
-        Guid circleId,
-        [FromQuery] Guid memberId)
-    {
-        try
-        {
-            var hasWarning = await _swapService.CheckSwapWarningAsync(circleId, memberId);
-            return Ok(new { hasWarning });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
         }
     }
 
     [HttpPost("{swapRequestId:guid}/accept")]
     public async Task<ActionResult<SwapRequestDto>> AcceptSwapRequest(
         Guid circleId,
-        Guid swapRequestId,
-        [FromQuery] Guid requestingUserId)
+        Guid swapRequestId)
     {
         try
         {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var updated = await _swapService.AcceptSwapRequestAsync(swapRequestId, requestingUserId);
-            return Ok(ToDto(updated));
+            return Ok(updated.ToDto());
         }
         catch (ArgumentException ex)
         {
@@ -106,17 +94,5 @@ public class SwapRequestsController : ControllerBase
         }
     }
 
-    private static SwapRequestDto ToDto(SwapRequest swapRequest) => new()
-    {
-        Id = swapRequest.Id,
-        CircleId = swapRequest.CircleId,
-        CycleId = swapRequest.CycleId,
-        RequesterId = swapRequest.RequesterId,
-        AcceptorId = swapRequest.AcceptorId,
-        RequesterOriginalPosition = swapRequest.RequesterOriginalPosition,
-        AcceptorOriginalPosition = swapRequest.AcceptorOriginalPosition,
-        Status = swapRequest.Status.ToString(),
-        AcceptedAt = swapRequest.AcceptedAt,
-        CreatedAt = swapRequest.CreatedAt
-    };
+
 }

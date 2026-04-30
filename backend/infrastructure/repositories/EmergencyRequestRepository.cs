@@ -41,13 +41,12 @@ public class EmergencyRequestRepository : IEmergencyRequestRepository
         return request;
     }
 
-    public async Task DeleteAsync(Guid id)
-    {
-        var request = await _context.EmergencyRequests.FirstOrDefaultAsync(r => r.Id == id);
-        if (request is not null)
-        {
-            _context.EmergencyRequests.Remove(request);
-            await _context.SaveChangesAsync();
-        }
-    }
+    // US-07: returns total amount disbursed from approved emergency requests
+public async Task<decimal> GetTotalDisbursedAsync(Guid circleId)
+    => await _context.EmergencyRequests
+        .Where(r => r.CircleId == circleId && r.Status == EmergencyStatus.Approved)
+        .SumAsync(r => (decimal?)r.AmountRequested) ?? 0m;
+
+    public Task DeleteAsync(Guid id)
+    => throw new NotSupportedException("Emergency requests cannot be deleted. They are permanent financial records.");
 }

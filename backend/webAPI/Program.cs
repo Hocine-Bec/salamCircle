@@ -6,6 +6,7 @@ Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddApplicationServices(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();     
 
@@ -23,7 +24,7 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference(options =>
     {
         options
-            .WithTitle("SpendSplit")
+            .WithTitle("SalamCircle")
             .WithTheme(ScalarTheme.Kepler)
             .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient)
             .WithOpenApiRoutePattern("/swagger/{documentName}/swagger.json"); 
