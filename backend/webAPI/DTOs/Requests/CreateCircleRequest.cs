@@ -1,6 +1,6 @@
 namespace webAPI.DTOs.Requests;
 
-public class CreateCircleDto
+public class CreateCircleRequest
 {
     public string Name { get; set; } = string.Empty;
     public Guid ImamId { get; set; }

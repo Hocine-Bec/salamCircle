@@ -41,7 +41,7 @@ public class EmergencyRequestsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<EmergencyRequestDto>> SubmitRequest(
         Guid circleId,
-        [FromBody] SubmitEmergencyRequestDto dto)
+        [FromBody] SubmitEmergencyRequest dto)
     {
         try
         {
@@ -105,7 +105,7 @@ public class EmergencyRequestsController : ControllerBase
     public async Task<ActionResult<EmergencyRequestDto>> RejectRequest(
         Guid circleId,
         Guid requestId,
-        [FromBody] RejectEmergencyRequestDto dto)
+        [FromBody] RejectEmergencyRequest dto)
     {
         try
         {

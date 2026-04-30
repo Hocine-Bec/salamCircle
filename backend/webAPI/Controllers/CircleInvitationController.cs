@@ -18,7 +18,7 @@ public class CircleInvitationController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Send(Guid circleId, [FromBody] SendInvitationDto dto)
+    public async Task<IActionResult> Send(Guid circleId, [FromBody] SendInvitationRequest dto)
     {
         try
         {

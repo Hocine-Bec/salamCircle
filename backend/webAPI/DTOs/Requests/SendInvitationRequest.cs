@@ -1,6 +1,6 @@
 namespace webAPI.DTOs.Requests;
 
-public class SendInvitationDto
+public class SendInvitationRequest
 {
     public string PhoneNumber { get; set; } = string.Empty;
     public Guid ImamId { get; set; }

@@ -1,6 +1,6 @@
 namespace webAPI.DTOs.Requests;
 
-public class SendReminderDto
+public class SendReminderRequest
 {
     public Guid CycleId { get; set; }
     public Guid TargetMemberId { get; set; }

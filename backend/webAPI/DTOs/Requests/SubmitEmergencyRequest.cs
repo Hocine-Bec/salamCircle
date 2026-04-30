@@ -1,7 +1,7 @@
 // DTOs/Requests/SubmitEmergencyRequestDto.cs
 namespace webAPI.DTOs.Requests;
 
-public class SubmitEmergencyRequestDto
+public class SubmitEmergencyRequest
 {
     public decimal AmountRequested { get; set; }
     public string Description { get; set; } = string.Empty;

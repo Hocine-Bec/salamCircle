@@ -45,7 +45,7 @@ public class UserController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<UserDto>> Create([FromBody] CreateUserDto dto)
+    public async Task<ActionResult<UserDto>> Create([FromBody] CreateUserRequest dto)
     {
         try
         {
@@ -69,7 +69,7 @@ public class UserController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<UserDto>> Update(Guid id, [FromBody] UpdateUserDto dto)
+    public async Task<ActionResult<UserDto>> Update(Guid id, [FromBody] UpdateUserRequest dto)
     {
         try
         {

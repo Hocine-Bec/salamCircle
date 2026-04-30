@@ -84,7 +84,7 @@ public class ContributionController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Submit(
         Guid circleId,
-        [FromBody] SubmitContributionDto dto)
+        [FromBody] SubmitContributionRequest dto)
     {
         try
         {

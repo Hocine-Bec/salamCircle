@@ -50,7 +50,7 @@ public class CircleController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<CircleDto>> Create([FromBody] CreateCircleDto dto)
+    public async Task<ActionResult<CircleDto>> Create([FromBody] CreateCircleRequest dto)
     {
         try
         {
@@ -75,7 +75,7 @@ public class CircleController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<ActionResult<CircleDto>> Update(Guid id, [FromBody] UpdateCircleDto dto)
+    public async Task<ActionResult<CircleDto>> Update(Guid id, [FromBody] UpdateCircleRequest dto)
     {
         try
         {

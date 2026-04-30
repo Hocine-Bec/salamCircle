@@ -24,7 +24,7 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference(options =>
     {
         options
-            .WithTitle("SpendSplit")
+            .WithTitle("SalamCircle")
             .WithTheme(ScalarTheme.Kepler)
             .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient)
             .WithOpenApiRoutePattern("/swagger/{documentName}/swagger.json"); 

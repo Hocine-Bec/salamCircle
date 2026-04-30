@@ -20,7 +20,7 @@ public class ReminderController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> SendReminder(
         Guid circleId,
-        [FromBody] SendReminderDto dto)
+        [FromBody] SendReminderRequest dto)
     {
         try
         {

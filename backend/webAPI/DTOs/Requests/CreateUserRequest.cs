@@ -1,7 +1,7 @@
-// DTOs/Requests/UpdateUserDto.cs
+// DTOs/Requests/CreateUserDto.cs
 namespace webAPI.DTOs.Requests;
 
-public class UpdateUserDto
+public class CreateUserRequest
 {
     public string Name { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;

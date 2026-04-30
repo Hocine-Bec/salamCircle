@@ -41,7 +41,7 @@ public class SwapRequestsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<SwapRequestDto>> PostSwapRequest(
         Guid circleId,
-        [FromBody] PostSwapRequestDto dto)
+        [FromBody] CreateSwapRequest dto)
     {
         try
         {

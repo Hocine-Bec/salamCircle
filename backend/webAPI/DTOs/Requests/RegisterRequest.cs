@@ -1,6 +1,6 @@
 namespace webAPI.DTOs.Requests;
 
-public class RegisterDto
+public class RegisterRequest
 {
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;

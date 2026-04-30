@@ -1,6 +1,6 @@
 namespace webAPI.DTOs.Requests;
 
-public class SubmitContributionDto
+public class SubmitContributionRequest
 {
     public Guid CycleId { get; set; }
     public decimal Amount { get; set; }
