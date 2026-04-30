@@ -30,7 +30,7 @@ public static class MappingExtensions
         Id = m.Id,
         CircleId = m.CircleId,
         UserId = m.UserId,
-        UserName = m.User?.Name ?? string.Empty,   // ← NEW
+        UserName = m.User?.Name ?? string.Empty,  
         QueuePosition = m.QueuePosition,
         Status = m.Status.ToString(),
         SwapCount = m.SwapCount,
