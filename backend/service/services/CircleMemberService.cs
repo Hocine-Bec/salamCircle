@@ -34,7 +34,7 @@ public class CircleMemberService : ICircleMemberService
         if (requestingUserId == Guid.Empty)
             throw new ArgumentException("Requesting user id cannot be empty.", nameof(requestingUserId));
 
-        if (!await _circleMemberRepository.IsMemberAsync(circleId, requestingUserId))
+        if (!await _circleMemberRepository.IsActiveMemberAsync(circleId, requestingUserId))
             throw new KeyNotFoundException($"Requesting user '{requestingUserId}' is not a member of circle '{circleId}'.");
 
         return await _circleMemberRepository.GetByCircleIdAsync(circleId);
@@ -133,38 +133,35 @@ public class CircleMemberService : ICircleMemberService
     // Recalculates how many members contribute per month based on circle size,
     // then notifies everyone if the number goes up.
     private async Task UpdateContributorsPerMonthAsync(Guid circleId)
+{
+    var circle = await _circleRepository.GetByIdAsync(circleId)
+        ?? throw new KeyNotFoundException($"Circle with id '{circleId}' not found.");
+
+    var activeCount = (await _circleMemberRepository.GetByCircleIdAsync(circleId))
+        .Count(m => m.Status == MemberStatus.Active);
+
+    var newValue = Math.Max(1, activeCount / 10);
+    if (newValue == circle.ContributorsPerMonth)
+        return;
+
+    circle.ContributorsPerMonth = newValue;
+    await _circleRepository.UpdateAsync(circle);
+
+    // US-11: notify ALL members on ANY change (increase OR decrease)
+    var activeMembers = (await _circleMemberRepository.GetByCircleIdAsync(circleId))
+        .Where(m => m.Status == MemberStatus.Active)
+        .ToList();
+
+    foreach (var member in activeMembers)
     {
-        var circle = await _circleRepository.GetByIdAsync(circleId)
-            ?? throw new KeyNotFoundException($"Circle with id '{circleId}' not found.");
-
-        var activeCount = (await _circleMemberRepository.GetByCircleIdAsync(circleId))
-            .Count(m => m.Status == MemberStatus.Active);
-
-        var newValue = Math.Max(1, activeCount / 10);
-        if (newValue == circle.ContributorsPerMonth)
-            return;
-
-        var oldValue = circle.ContributorsPerMonth;
-        circle.ContributorsPerMonth = newValue;
-        await _circleRepository.UpdateAsync(circle);
-
-        if (newValue > oldValue)
-        {
-            var activeMembers = (await _circleMemberRepository.GetByCircleIdAsync(circleId))
-                .Where(m => m.Status == MemberStatus.Active)
-                .ToList();
-
-            foreach (var member in activeMembers)
-            {
-                await _notificationService.SendAsync(
-                    member.UserId,
-                    circleId,
-                    NotificationType.CircleUpdated,
-                    "Monthly contributors updated",
-                    $"The number of monthly contributors in your circle has increased to {newValue}.");
-            }
-        }
+        await _notificationService.SendAsync(
+            member.UserId,
+            circleId,
+            NotificationType.CircleUpdated,
+            "Monthly contributors updated",
+            $"The number of monthly contributors in your circle has changed to {newValue}.");
     }
+}
 
     public async Task RemoveMemberAsync(Guid circleId, Guid memberId, Guid imamId)
     {
@@ -211,31 +208,47 @@ public class CircleMemberService : ICircleMemberService
     }
 
     public async Task PauseMemberAsync(Guid circleId, Guid requestingUserId)
+{
+    if (circleId == Guid.Empty)
+        throw new ArgumentException("Circle id cannot be empty.", nameof(circleId));
+
+    if (requestingUserId == Guid.Empty)
+        throw new ArgumentException("Requesting user id cannot be empty.", nameof(requestingUserId));
+
+    var member = await _circleMemberRepository.GetByCircleAndUserAsync(circleId, requestingUserId)
+        ?? throw new KeyNotFoundException($"Circle member for user '{requestingUserId}' in circle '{circleId}' not found.");
+
+    if (member.HasPausedThisCycle)
+        throw new InvalidOperationException("You have already paused your turn once this cycle.");
+
+    member.Status = MemberStatus.Paused;
+    member.HasPausedThisCycle = true;
+    await _circleMemberRepository.UpdateAsync(member);
+
+    await CompactQueuePositionsAsync(circleId);
+
+    await _transparencyLogService.LogAsync(
+        circleId,
+        LogEventType.MemberPaused,
+        $"Member '{requestingUserId}' paused their contribution turn for this cycle.",
+        actorId: requestingUserId,
+        targetId: requestingUserId);
+
+    // US-24: all members notified that the queue shifted
+    var allActive = (await _circleMemberRepository.GetByCircleIdAsync(circleId))
+        .Where(m => m.Status == MemberStatus.Active)
+        .ToList();
+
+    foreach (var m in allActive)
     {
-        if (circleId == Guid.Empty)
-            throw new ArgumentException("Circle id cannot be empty.", nameof(circleId));
-
-        if (requestingUserId == Guid.Empty)
-            throw new ArgumentException("Requesting user id cannot be empty.", nameof(requestingUserId));
-
-        var member = await _circleMemberRepository.GetByCircleAndUserAsync(circleId, requestingUserId)
-            ?? throw new KeyNotFoundException($"Circle member for user '{requestingUserId}' in circle '{circleId}' not found.");
-
-        if (member.HasPausedThisCycle)
-            throw new InvalidOperationException("Member has already paused once this cycle.");
-
-        member.Status = MemberStatus.Paused;
-        member.HasPausedThisCycle = true;
-        await _circleMemberRepository.UpdateAsync(member);
-
-        // Member remains in queue; pause only skips this cycle's contribution.
-        await _transparencyLogService.LogAsync(
-            circleId,
-            LogEventType.MemberPaused,
-            $"Member '{requestingUserId}' paused their contribution turn.",
-            actorId: requestingUserId,
-            targetId: requestingUserId);
+        await _notificationService.SendAsync(
+            userId: m.UserId,
+            circleId: circleId,
+            type: NotificationType.CircleUpdated,
+            title: "Queue updated",
+            body: "A member has paused their turn this cycle. The contribution queue has been updated.");
     }
+}
 
     public async Task ExitCircleAsync(Guid circleId, Guid requestingUserId)
     {
@@ -316,7 +329,7 @@ public class CircleMemberService : ICircleMemberService
         if (requestingUserId == Guid.Empty)
             throw new ArgumentException("Requesting user id cannot be empty.", nameof(requestingUserId));
 
-        if (!await _circleMemberRepository.IsMemberAsync(circleId, requestingUserId))
+        if (!await _circleMemberRepository.IsActiveMemberAsync(circleId, requestingUserId))
             throw new KeyNotFoundException($"Requesting user '{requestingUserId}' is not a member of circle '{circleId}'.");
 
         var members = await _circleMemberRepository.GetByCircleIdAsync(circleId);
