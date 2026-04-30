@@ -26,7 +26,7 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var token = await _authService.RegisterAsync(dto.Name, dto.Email, dto.Password);
+            var token = await _authService.RegisterAsync(dto.Name, dto.Phone, dto.Email, dto.Password);
             return Ok(new { token });
         }
         catch (ArgumentException ex)
