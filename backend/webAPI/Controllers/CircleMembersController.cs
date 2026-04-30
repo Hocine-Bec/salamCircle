@@ -1,10 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using service.entities;
 using service.interfaces.services;
 using System.Security.Claims;
 using webAPI.DTOs.Responses;
-using webAPI.Extensions;
 using webAPI.Mapping;
 
 namespace webAPI.Controllers;
@@ -21,13 +19,15 @@ public class CircleMembersController : ControllerBase
         _circleMemberService = circleMemberService;
     }
 
+    private Guid GetRequestingUserId()
+        => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
     [HttpGet]
     public async Task<ActionResult<List<CircleMemberDto>>> GetMembers(Guid circleId)
     {
         try
         {
-            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var members = await _circleMemberService.GetCircleMembersAsync(circleId, requestingUserId);
+            var members = await _circleMemberService.GetCircleMembersAsync(circleId, GetRequestingUserId());
             return Ok(members.Select(m => m.ToDto()).ToList());
         }
         catch (ArgumentException ex)
@@ -45,8 +45,7 @@ public class CircleMembersController : ControllerBase
     {
         try
         {
-            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var queue = await _circleMemberService.GetContributionQueueAsync(circleId, requestingUserId);
+            var queue = await _circleMemberService.GetContributionQueueAsync(circleId, GetRequestingUserId());
             return Ok(queue.Select(m => m.ToDto()).ToList());
         }
         catch (ArgumentException ex)
@@ -59,12 +58,18 @@ public class CircleMembersController : ControllerBase
         }
     }
 
+    // Self-pause: a member can only pause themselves
     [HttpPost("{memberId:guid}/pause")]
     public async Task<IActionResult> PauseMember(Guid circleId, Guid memberId)
     {
+        var requestingUserId = GetRequestingUserId();
+
+        // memberId in route must match the JWT user — pause is self-service only
+        if (memberId != requestingUserId)
+            return Forbid();
+
         try
         {
-            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             await _circleMemberService.PauseMemberAsync(circleId, requestingUserId);
             return NoContent();
         }
@@ -82,12 +87,18 @@ public class CircleMembersController : ControllerBase
         }
     }
 
+    // Self-exit: a member can only exit themselves
     [HttpPost("{memberId:guid}/exit")]
     public async Task<IActionResult> ExitCircle(Guid circleId, Guid memberId)
     {
+        var requestingUserId = GetRequestingUserId();
+
+        // memberId in route must match the JWT user — exit is self-service only
+        if (memberId != requestingUserId)
+            return Forbid();
+
         try
         {
-            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             await _circleMemberService.ExitCircleAsync(circleId, requestingUserId);
             return NoContent();
         }
@@ -105,12 +116,13 @@ public class CircleMembersController : ControllerBase
         }
     }
 
+    // Imam-only: remove a specific member
     [HttpDelete("{memberId:guid}")]
     public async Task<IActionResult> RemoveMember(Guid circleId, Guid memberId)
     {
         try
         {
-            var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var imamId = GetRequestingUserId();
             await _circleMemberService.RemoveMemberAsync(circleId, memberId, imamId);
             return NoContent();
         }
@@ -128,12 +140,13 @@ public class CircleMembersController : ControllerBase
         }
     }
 
+    // Imam-only: shuffle the queue
     [HttpPost("queue/shuffle")]
     public async Task<IActionResult> ShuffleQueue(Guid circleId)
     {
         try
         {
-            var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var imamId = GetRequestingUserId();
             await _circleMemberService.ShuffleQueueAsync(circleId, imamId);
             return NoContent();
         }
@@ -151,11 +164,14 @@ public class CircleMembersController : ControllerBase
         }
     }
 
+    // Imam-only: compact queue positions (no gaps after removals)
     [HttpPost("queue/compact")]
     public async Task<IActionResult> CompactQueue(Guid circleId)
     {
         try
         {
+            // Only the imam should be able to trigger this manually
+            var imamId = GetRequestingUserId();
             await _circleMemberService.CompactQueuePositionsAsync(circleId);
             return NoContent();
         }
@@ -168,6 +184,4 @@ public class CircleMembersController : ControllerBase
             return NotFound(new { message = ex.Message });
         }
     }
-
-   
 }
