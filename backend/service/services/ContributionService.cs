@@ -12,19 +12,22 @@ public class ContributionService : IContributionService
     private readonly ICircleRepository _circleRepository;
     private readonly ICircleMemberRepository _circleMemberRepository;
     private readonly ITransparencyLogService _transparencyLogService;
+    private readonly INotificationService _notificationService;
 
     public ContributionService(
         IContributionRepository repository,
         IContributionCycleRepository cycleRepository,
         ICircleRepository circleRepository,
         ICircleMemberRepository circleMemberRepository,
-        ITransparencyLogService transparencyLogService)
+        ITransparencyLogService transparencyLogService,
+        INotificationService notificationService)
     {
         _contributionRepository = repository;
         _cycleRepository = cycleRepository;
         _circleRepository = circleRepository;
         _circleMemberRepository = circleMemberRepository;
         _transparencyLogService = transparencyLogService;
+        _notificationService = notificationService;
     }
 
     public async Task<Contribution> SubmitContributionAsync(Guid cycleId, decimal amount, Guid requestingUserId)
@@ -55,14 +58,11 @@ public class ContributionService : IContributionService
         if (activeMembers.Count == 0)
             throw new InvalidOperationException("No active members found for the circle.");
 
- 
         var offset = ((cycle.CycleNumber - 1) * cycle.ContributorsPerCycle) % activeMembers.Count;
         var slots = Enumerable.Range(0, cycle.ContributorsPerCycle)
             .Select(i => activeMembers[(offset + i) % activeMembers.Count])
             .ToList();
 
-
-        // TODO: handle wrap-around when offset + ContributorsPerCycle exceeds member count
         if (!slots.Any(m => m.Id == member.Id))
             throw new InvalidOperationException("It is not your turn to contribute this cycle.");
 
@@ -89,6 +89,14 @@ public class ContributionService : IContributionService
             LogEventType.ContributionMade,
             $"Member '{requestingUserId}' contributed {amount} in cycle '{cycleId}'.",
             actorId: requestingUserId);
+
+        // US-12: Notify the member their contribution was recorded successfully
+        await _notificationService.SendAsync(
+            userId: requestingUserId,
+            circleId: circle.Id,
+            type: NotificationType.ContributionDue,
+            title: "Contribution recorded — Jazak Allahu khayran",
+            body: $"Your contribution of {amount} to the circle \"{circle.Name}\" has been successfully recorded. Barakallahu feek for supporting your community.");
 
         return createdContribution;
     }

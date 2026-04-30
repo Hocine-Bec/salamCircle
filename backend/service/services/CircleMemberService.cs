@@ -82,7 +82,7 @@ public class CircleMemberService : ICircleMemberService
     }
 
     // Recalculates how many members contribute per month based on circle size,
-    //  then notifies everyone if the number goes up.
+    // then notifies everyone if the number goes up.
     private async Task UpdateContributorsPerMonthAsync(Guid circleId)
     {
         var circle = await _circleRepository.GetByIdAsync(circleId)
@@ -110,10 +110,9 @@ public class CircleMemberService : ICircleMemberService
                 await _notificationService.SendAsync(
                     member.UserId,
                     circleId,
-                    NotificationType.CircleUpdated   ,
+                    NotificationType.CircleUpdated,
                     "Monthly contributors updated",
-                    $"The number of monthly contributors in your circle has increased to {newValue}."
-                );
+                    $"The number of monthly contributors in your circle has increased to {newValue}.");
             }
         }
     }
@@ -135,6 +134,9 @@ public class CircleMemberService : ICircleMemberService
         if (member.CircleId != circleId)
             throw new ArgumentException("Member does not belong to the specified circle.", nameof(circleId));
 
+        var circle = await _circleRepository.GetByIdAsync(circleId)
+            ?? throw new KeyNotFoundException($"Circle with id '{circleId}' not found.");
+
         // Soft delete — keep record for transparency log history (US-20)
         member.Status = MemberStatus.Removed;
         member.RemovedAt = DateTime.UtcNow;
@@ -149,6 +151,14 @@ public class CircleMemberService : ICircleMemberService
             $"Member '{memberId}' was removed by Imam '{imamId}'.",
             actorId: imamId,
             targetId: memberId);
+
+        // US-20: Removed member is notified and immediately loses access
+        await _notificationService.SendAsync(
+            userId: member.UserId,
+            circleId: circleId,
+            type: NotificationType.CircleUpdated,
+            title: "You have been removed from a circle",
+            body: $"You have been removed from the circle \"{circle.Name}\" by the Imam. Your contribution history remains accessible in the transparency log.");
     }
 
     public async Task PauseMemberAsync(Guid circleId, Guid requestingUserId)
@@ -162,13 +172,13 @@ public class CircleMemberService : ICircleMemberService
         var member = await _circleMemberRepository.GetByCircleAndUserAsync(circleId, requestingUserId)
             ?? throw new KeyNotFoundException($"Circle member for user '{requestingUserId}' in circle '{circleId}' not found.");
 
-        // 
         if (member.HasPausedThisCycle)
-             throw new InvalidOperationException("Member has already paused once this cycle.");
+            throw new InvalidOperationException("Member has already paused once this cycle.");
 
         member.Status = MemberStatus.Paused;
         member.HasPausedThisCycle = true;
         await _circleMemberRepository.UpdateAsync(member);
+
         // Member remains in queue; pause only skips this cycle's contribution.
         await _transparencyLogService.LogAsync(
             circleId,
@@ -189,21 +199,32 @@ public class CircleMemberService : ICircleMemberService
         var member = await _circleMemberRepository.GetByCircleAndUserAsync(circleId, requestingUserId)
             ?? throw new KeyNotFoundException($"Circle member for user '{requestingUserId}' in circle '{circleId}' not found.");
 
+        var circle = await _circleRepository.GetByIdAsync(circleId)
+            ?? throw new KeyNotFoundException($"Circle with id '{circleId}' not found.");
+
         member.Status = MemberStatus.Exited;
         await _circleMemberRepository.UpdateAsync(member);
+
         await UpdateContributorsPerMonthAsync(circleId);
         await CompactQueuePositionsAsync(circleId);
+
         await _transparencyLogService.LogAsync(
             circleId,
             LogEventType.MemberExited,
             $"Member '{requestingUserId}' exited the circle.",
             actorId: requestingUserId,
             targetId: requestingUserId);
+
+        // US-25: Imam is notified immediately when a member exits
+        await _notificationService.SendAsync(
+            userId: circle.ImamId,
+            circleId: circleId,
+            type: NotificationType.CircleUpdated,
+            title: "A member has exited your circle",
+            body: $"A member has chosen to exit the circle \"{circle.Name}\". The queue has been updated accordingly.");
     }
 
-
-    // Rotates the queue by moving the first member to the end — used by the Imam when needed
-    // someone needs to go earlier/later
+    // Rotates the queue by moving the first member to the end
     public async Task ShuffleQueueAsync(Guid circleId, Guid imamId)
     {
         if (circleId == Guid.Empty)
@@ -216,7 +237,6 @@ public class CircleMemberService : ICircleMemberService
         if (members is null || members.Count == 0)
             throw new KeyNotFoundException($"No members found for circle '{circleId}'.");
 
-        
         var imam = members.FirstOrDefault(m => m.UserId == imamId)
             ?? throw new KeyNotFoundException($"Imam with id '{imamId}' is not a member of circle '{circleId}'.");
 
@@ -256,7 +276,6 @@ public class CircleMemberService : ICircleMemberService
             .OrderBy(m => m.QueuePosition)
             .ToList();
     }
-
 
     // Re-sequences QueuePosition values after a member leaves, so there are no gaps.
     public async Task CompactQueuePositionsAsync(Guid circleId)

@@ -1,5 +1,4 @@
-﻿// ContributionCycleService.cs
-using service.entities;
+﻿using service.entities;
 using service.enums;
 using service.interfaces.repositories;
 using service.interfaces.services;
@@ -10,17 +9,22 @@ public class ContributionCycleService : IContributionCycleService
 {
     private readonly IContributionCycleRepository _cycleRepository;
     private readonly ICircleRepository _circleRepository;
-
     private readonly ICircleMemberRepository _circleMemberRepository;
+    private readonly INotificationService _notificationService;
+    private readonly ITransparencyLogService _transparencyLogService;
 
     public ContributionCycleService(
         IContributionCycleRepository cycleRepository,
         ICircleRepository circleRepository,
-        ICircleMemberRepository circleMemberRepository)
+        ICircleMemberRepository circleMemberRepository,
+        INotificationService notificationService,
+        ITransparencyLogService transparencyLogService)
     {
         _cycleRepository = cycleRepository;
         _circleRepository = circleRepository;
         _circleMemberRepository = circleMemberRepository;
+        _notificationService = notificationService;
+        _transparencyLogService = transparencyLogService;
     }
 
     public async Task<ContributionCycle> GetActiveCycleAsync(Guid circleId, Guid requestingUserId)
@@ -28,8 +32,8 @@ public class ContributionCycleService : IContributionCycleService
         if (circleId == Guid.Empty)
             throw new ArgumentException("Circle id cannot be empty.");
 
-            if (!await _circleMemberRepository.IsMemberAsync(circleId, requestingUserId))
-    throw new KeyNotFoundException($"Requesting user '{requestingUserId}' is not a member of circle '{circleId}'.");
+        if (!await _circleMemberRepository.IsMemberAsync(circleId, requestingUserId))
+            throw new KeyNotFoundException($"Requesting user '{requestingUserId}' is not a member of circle '{circleId}'.");
 
         var cycle = await _cycleRepository.GetActiveByCircleIdAsync(circleId)
             ?? throw new KeyNotFoundException("No active cycle found.");
@@ -84,15 +88,41 @@ public class ContributionCycleService : IContributionCycleService
             Status = CycleStatus.Active
         };
 
-        // After closing the old cycle, reset pause flags for all active members
-        var members = await _circleMemberRepository.GetByCircleIdAsync(circleId);
-        foreach (var member in members.Where(m => m.Status == MemberStatus.Active))
+        var created = await _cycleRepository.CreateAsync(nextCycle);
+
+        // Reset pause flags for all active members at the start of a new cycle (US-24)
+        var allMembers = await _circleMemberRepository.GetByCircleIdAsync(circleId);
+        foreach (var member in allMembers.Where(m => m.Status == MemberStatus.Active || m.Status == MemberStatus.Paused))
         {
             member.HasPausedThisCycle = false;
-            member.Status = MemberStatus.Active; // re-activate paused members for new cycle
+            member.Status = MemberStatus.Active;
             await _circleMemberRepository.UpdateAsync(member);
         }
 
-        return await _cycleRepository.CreateAsync(nextCycle);
+        // Determine whose turn it is this cycle and notify them (US-11 / ContributionDue)
+        var activeMembers = allMembers
+            .Where(m => m.Status == MemberStatus.Active)
+            .OrderBy(m => m.QueuePosition)
+            .ToList();
+
+        if (activeMembers.Count > 0)
+        {
+            var offset = ((created.CycleNumber - 1) * created.ContributorsPerCycle) % activeMembers.Count;
+            var dueMembers = Enumerable.Range(0, created.ContributorsPerCycle)
+                .Select(i => activeMembers[(offset + i) % activeMembers.Count])
+                .ToList();
+
+            foreach (var dueMember in dueMembers)
+            {
+                await _notificationService.SendAsync(
+                    userId: dueMember.UserId,
+                    circleId: circleId,
+                    type: NotificationType.ContributionDue,
+                    title: "It is your turn to contribute this month",
+                    body: $"Assalamu alaikum, it is your turn to contribute to the circle \"{circle.Name}\" this month inshaAllah. Minimum contribution: {circle.MinimumContribution}. Jazak Allahu khayran.");
+            }
+        }
+
+        return created;
     }
 }

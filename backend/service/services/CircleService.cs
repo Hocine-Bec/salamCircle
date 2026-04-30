@@ -10,15 +10,18 @@ public class CircleService : ICircleService
     private readonly ICircleRepository _circleRepository;
     private readonly ITransparencyLogService _transparencyLogService;
     private readonly ICircleMemberRepository _circleMemberRepository;
+    private readonly INotificationService _notificationService;
 
     public CircleService(
         ICircleRepository circleRepository,
         ITransparencyLogService transparencyLogService,
-        ICircleMemberRepository circleMemberRepository)
+        ICircleMemberRepository circleMemberRepository,
+        INotificationService notificationService)
     {
         _circleRepository = circleRepository;
         _transparencyLogService = transparencyLogService;
         _circleMemberRepository = circleMemberRepository;
+        _notificationService = notificationService;
     }
 
     public async Task<Circle?> GetByIdAsync(Guid circleId)
@@ -70,34 +73,33 @@ public class CircleService : ICircleService
     }
 
     public async Task<Circle> UpdateAsync(Circle circle, Guid imamId)
-{
-    if (circle is null)
-        throw new ArgumentNullException(nameof(circle));
+    {
+        if (circle is null)
+            throw new ArgumentNullException(nameof(circle));
 
-    if (string.IsNullOrWhiteSpace(circle.Name))
-        throw new ArgumentException("Circle name cannot be empty.", nameof(circle));
+        if (string.IsNullOrWhiteSpace(circle.Name))
+            throw new ArgumentException("Circle name cannot be empty.", nameof(circle));
 
-    if (circle.MinimumContribution <= 0)
-        throw new ArgumentException("Minimum contribution must be greater than zero.", nameof(circle));
+        if (circle.MinimumContribution <= 0)
+            throw new ArgumentException("Minimum contribution must be greater than zero.", nameof(circle));
 
-    if (imamId == Guid.Empty)
-        throw new ArgumentException("Imam id cannot be empty.", nameof(imamId));
+        if (imamId == Guid.Empty)
+            throw new ArgumentException("Imam id cannot be empty.", nameof(imamId));
 
-    var existing = await _circleRepository.GetByIdAsync(circle.Id)
-        ?? throw new KeyNotFoundException($"Circle with id '{circle.Id}' not found.");
+        var existing = await _circleRepository.GetByIdAsync(circle.Id)
+            ?? throw new KeyNotFoundException($"Circle with id '{circle.Id}' not found.");
 
-    if (existing.ImamId != imamId)
-        throw new UnauthorizedAccessException("Only the imam may update the circle.");
+        if (existing.ImamId != imamId)
+            throw new UnauthorizedAccessException("Only the imam may update the circle.");
 
-    if (existing.Status == CircleStatus.Closed)
-        throw new InvalidOperationException("Cannot update a closed circle.");
+        if (existing.Status == CircleStatus.Closed)
+            throw new InvalidOperationException("Cannot update a closed circle.");
 
-    existing.Name = circle.Name;
-    existing.MinimumContribution = circle.MinimumContribution;
+        existing.Name = circle.Name;
+        existing.MinimumContribution = circle.MinimumContribution;
 
-    return await _circleRepository.UpdateAsync(existing);
-}
-
+        return await _circleRepository.UpdateAsync(existing);
+    }
 
     public async Task DeleteAsync(Guid circleId)
     {
@@ -141,5 +143,17 @@ public class CircleService : ICircleService
             LogEventType.CircleClosed,
             $"Circle '{circle.Name}' was closed by Imam '{imamId}'.",
             actorId: imamId);
+
+        // US-08: All members receive a notification when the circle is closed
+        var activeMembers = await _circleMemberRepository.GetByCircleIdAsync(circleId);
+        foreach (var member in activeMembers.Where(m => m.Status == MemberStatus.Active))
+        {
+            await _notificationService.SendAsync(
+                userId: member.UserId,
+                circleId: circleId,
+                type: NotificationType.CircleClosed,
+                title: "Your circle has been closed",
+                body: $"The circle \"{circle.Name}\" has been officially closed by the Imam. Jazak Allahu khayran for your participation.");
+        }
     }
 }
