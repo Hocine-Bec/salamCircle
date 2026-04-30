@@ -66,6 +66,12 @@ public class SwapService : ISwapService
         if (swapCount >= 3)
             throw new InvalidOperationException("Member has reached the maximum swap limit of 3 for this cycle.");
 
+        
+        var openSwaps = await _swapRequestRepository.GetOpenByCycleIdAsync(cycleId);
+        if (openSwaps.Any(s => s.RequesterId == member.Id))
+            throw new InvalidOperationException("You already have an open swap request for this cycle.");
+
+
         var circle = await _circleRepository.GetByIdAsync(cycle.CircleId)
             ?? throw new KeyNotFoundException($"Circle with id '{cycle.CircleId}' not found.");
 

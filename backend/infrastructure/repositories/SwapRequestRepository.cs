@@ -25,7 +25,9 @@ public class SwapRequestRepository : ISwapRequestRepository
             .ToListAsync();
 
     public async Task<int> CountByMemberAndCycleAsync(Guid memberId, Guid cycleId)
-        => await _context.SwapRequests.CountAsync(s => s.RequesterId == memberId && s.CycleId == cycleId);
+        => await _context.SwapRequests.CountAsync(s =>
+            s.CycleId == cycleId
+            && (s.RequesterId == memberId || s.AcceptorId == memberId));
 
     public async Task<SwapRequest> CreateAsync(SwapRequest swapRequest)
     {
