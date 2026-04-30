@@ -20,7 +20,7 @@ public class AuthService : IAuthService
         _configuration = configuration;
     }
 
-    public async Task<string> RegisterAsync(string name, string email, string password)
+    public async Task<string> RegisterAsync(string name, string phone, string email, string password)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name cannot be empty.", nameof(name));
@@ -31,6 +31,10 @@ public class AuthService : IAuthService
         if (string.IsNullOrWhiteSpace(password))
             throw new ArgumentException("Password cannot be empty.", nameof(password));
 
+        
+         if (string.IsNullOrWhiteSpace(phone))
+            throw new ArgumentException("Phone cannot be empty.", nameof(phone));
+
         if (await _userRepository.ExistsByEmailAsync(email))
             throw new InvalidOperationException($"Email '{email}' is already in use.");
 
@@ -38,7 +42,7 @@ public class AuthService : IAuthService
         {
             Name = name,
             Email = email,
-            Phone = string.Empty,
+            Phone = phone,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password)
         };
 

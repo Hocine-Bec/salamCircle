@@ -13,18 +13,22 @@ public class ReminderService : IReminderService
     private readonly ICircleMemberRepository _circleMemberRepository;
     private readonly ITransparencyLogService _transparencyLogService;
 
+    private readonly INotificationService _notificationService;
+
     public ReminderService(
         IReminderRepository reminderRepository,
         IContributionCycleRepository cycleRepository,
         ICircleRepository circleRepository,
         ICircleMemberRepository circleMemberRepository,
-        ITransparencyLogService transparencyLogService)
+        ITransparencyLogService transparencyLogService,
+        INotificationService notificationService)
     {
         _reminderRepository = reminderRepository;
         _cycleRepository = cycleRepository;
         _circleRepository = circleRepository;
         _circleMemberRepository = circleMemberRepository;
         _transparencyLogService = transparencyLogService;
+        _notificationService = notificationService;
     }
 
     public async Task SendReminderAsync(Guid cycleId, Guid targetMemberId, Guid imamId)
@@ -52,14 +56,22 @@ public class ReminderService : IReminderService
             throw new InvalidOperationException("Maximum reminders reached for this member in this cycle.");
 
         var reminder = new Reminder
-{
-    CircleId = circle.Id,
-    CycleId = cycleId,
-    SentToId = targetMemberId,
-    SentById = imamId
-};
+        {
+            CircleId = circle.Id,
+            CycleId = cycleId,
+            SentToId = targetMemberId,
+            SentById = imamId
+        };
 
         var created = await _reminderRepository.CreateAsync(reminder);
+
+        
+        await _notificationService.SendAsync(
+    userId: targetMemberId, 
+    circleId: circle.Id,
+    type: NotificationType.ReminderReceived,
+    title: "Assalamu alaikum, gentle payment reminder",
+    body: $"Assalamu alaikum , it is your turn to contribute to the circle \"{circle.Name}\" this month inshaAllah. Jazak Allahu khayran for supporting your community." );
 
         await _transparencyLogService.LogAsync(
             circle.Id,
