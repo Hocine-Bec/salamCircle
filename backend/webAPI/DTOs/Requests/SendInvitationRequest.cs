@@ -9,6 +9,4 @@ public class SendInvitationRequest
     [MaxLength(20)]
     public string PhoneNumber { get; set; } = string.Empty;
 
-    [Required]
-    public Guid ImamId { get; set; }
 }

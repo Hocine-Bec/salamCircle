@@ -1,9 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
+using System.Security.Claims;
 using webAPI.DTOs.Requests;
 using webAPI.DTOs.Responses;
-using Microsoft.AspNetCore.Authorization;
 
 namespace webAPI.Controllers;
 
@@ -102,13 +103,11 @@ public class CircleController : ControllerBase
     }
 
     [HttpPost("{id:guid}/close")]
-    public async Task<IActionResult> Close(
-        Guid id,
-        // TODO: replace with: var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid imamId)
+    public async Task<IActionResult> Close(Guid id)
     {
         try
         {
+            var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             await _circleService.CloseCircleAsync(id, imamId);
             return NoContent();
         }

@@ -1,9 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
+using System.Security.Claims;
 using webAPI.DTOs.Requests;
 using webAPI.DTOs.Responses;
-using Microsoft.AspNetCore.Authorization;
 
 namespace webAPI.Controllers;
 
@@ -20,13 +21,11 @@ public class SwapRequestsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<SwapRequestDto>>> GetOpenSwapRequests(
-        Guid circleId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid requestingUserId)
+    public async Task<ActionResult<List<SwapRequestDto>>> GetOpenSwapRequests(Guid circleId)
     {
         try
         {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var requests = await _swapService.GetOpenSwapRequestsAsync(circleId, requestingUserId);
             return Ok(requests.Select(ToDto).ToList());
         }
@@ -47,10 +46,11 @@ public class SwapRequestsController : ControllerBase
     {
         try
         {
-            var created = await _swapService.PostSwapRequestAsync(dto.CycleId, dto.RequestingUserId);
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var created = await _swapService.PostSwapRequestAsync(dto.CycleId, requestingUserId);
             return CreatedAtAction(
                 nameof(GetOpenSwapRequests),
-                new { circleId, requestingUserId = dto.RequestingUserId },
+                new { circleId },
                 ToDto(created));
         }
         catch (ArgumentException ex)
@@ -70,12 +70,11 @@ public class SwapRequestsController : ControllerBase
     [HttpPost("{swapRequestId:guid}/accept")]
     public async Task<ActionResult<SwapRequestDto>> AcceptSwapRequest(
         Guid circleId,
-        Guid swapRequestId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid requestingUserId)
+        Guid swapRequestId)
     {
         try
         {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var updated = await _swapService.AcceptSwapRequestAsync(swapRequestId, requestingUserId);
             return Ok(ToDto(updated));
         }

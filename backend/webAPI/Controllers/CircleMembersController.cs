@@ -1,8 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
+using System.Security.Claims;
 using webAPI.DTOs.Responses;
-using Microsoft.AspNetCore.Authorization;
 
 namespace webAPI.Controllers;
 
@@ -19,13 +20,11 @@ public class CircleMembersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<CircleMemberDto>>> GetMembers(
-        Guid circleId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid requestingUserId)
+    public async Task<ActionResult<List<CircleMemberDto>>> GetMembers(Guid circleId)
     {
         try
         {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var members = await _circleMemberService.GetCircleMembersAsync(circleId, requestingUserId);
             return Ok(members.Select(ToDto).ToList());
         }
@@ -40,13 +39,11 @@ public class CircleMembersController : ControllerBase
     }
 
     [HttpGet("queue")]
-    public async Task<ActionResult<List<CircleMemberDto>>> GetQueue(
-        Guid circleId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid requestingUserId)
+    public async Task<ActionResult<List<CircleMemberDto>>> GetQueue(Guid circleId)
     {
         try
         {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var queue = await _circleMemberService.GetContributionQueueAsync(circleId, requestingUserId);
             return Ok(queue.Select(ToDto).ToList());
         }
@@ -61,14 +58,11 @@ public class CircleMembersController : ControllerBase
     }
 
     [HttpPost("{memberId:guid}/pause")]
-    public async Task<IActionResult> PauseMember(
-        Guid circleId,
-        Guid memberId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid requestingUserId)
+    public async Task<IActionResult> PauseMember(Guid circleId, Guid memberId)
     {
         try
         {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             await _circleMemberService.PauseMemberAsync(circleId, requestingUserId);
             return NoContent();
         }
@@ -87,14 +81,11 @@ public class CircleMembersController : ControllerBase
     }
 
     [HttpPost("{memberId:guid}/exit")]
-    public async Task<IActionResult> ExitCircle(
-        Guid circleId,
-        Guid memberId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid requestingUserId)
+    public async Task<IActionResult> ExitCircle(Guid circleId, Guid memberId)
     {
         try
         {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             await _circleMemberService.ExitCircleAsync(circleId, requestingUserId);
             return NoContent();
         }
@@ -113,14 +104,11 @@ public class CircleMembersController : ControllerBase
     }
 
     [HttpDelete("{memberId:guid}")]
-    public async Task<IActionResult> RemoveMember(
-        Guid circleId,
-        Guid memberId,
-        // TODO: replace with: var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid imamId)
+    public async Task<IActionResult> RemoveMember(Guid circleId, Guid memberId)
     {
         try
         {
+            var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             await _circleMemberService.RemoveMemberAsync(circleId, memberId, imamId);
             return NoContent();
         }
@@ -139,13 +127,11 @@ public class CircleMembersController : ControllerBase
     }
 
     [HttpPost("queue/shuffle")]
-    public async Task<IActionResult> ShuffleQueue(
-        Guid circleId,
-        // TODO: replace with: var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid imamId)
+    public async Task<IActionResult> ShuffleQueue(Guid circleId)
     {
         try
         {
+            var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             await _circleMemberService.ShuffleQueueAsync(circleId, imamId);
             return NoContent();
         }

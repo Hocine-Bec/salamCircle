@@ -4,6 +4,7 @@ using service.interfaces.services;
 using webAPI.DTOs.Requests;
 using webAPI.DTOs.Responses;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace webAPI.Controllers;
 
@@ -20,32 +21,32 @@ public class ReminderController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> SendReminder(
-        Guid circleId,
-        [FromBody] SendReminderRequest dto)
+public async Task<IActionResult> SendReminder(Guid circleId, [FromBody] SendReminderRequest dto)
+{
+    try
     {
-        try
-        {
-            await _reminderService.SendReminderAsync(dto.CycleId, dto.TargetMemberId, dto.ImamId);
-            return Ok(new { message = "Reminder sent successfully." });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(403, new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
+        var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        await _reminderService.SendReminderAsync(dto.CycleId, dto.TargetMemberId, imamId);
+        return Ok(new { message = "Reminder sent successfully." });
     }
+    catch (ArgumentException ex)
+    {
+        return BadRequest(new { message = ex.Message });
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return NotFound(new { message = ex.Message });
+    }
+    catch (UnauthorizedAccessException ex)
+    {
+        return StatusCode(403, new { message = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return BadRequest(new { message = ex.Message });
+    }
+}
+
 
     [HttpGet("member/{memberId:guid}")]
     public async Task<ActionResult<List<ReminderDto>>> GetMemberReminders(

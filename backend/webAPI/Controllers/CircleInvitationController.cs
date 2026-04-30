@@ -1,9 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
+using System.Security.Claims;
 using webAPI.DTOs.Requests;
 using webAPI.DTOs.Responses;
-using Microsoft.AspNetCore.Authorization;
 
 namespace webAPI.Controllers;
 
@@ -24,11 +25,8 @@ public class CircleInvitationController : ControllerBase
     {
         try
         {
-            var result = await _service.SendInvitationAsync(
-                circleId,
-                dto.PhoneNumber,
-                dto.ImamId);
-
+            var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _service.SendInvitationAsync(circleId, dto.PhoneNumber, imamId);
             return Ok(ToDto(result));
         }
         catch (ArgumentException ex)
@@ -46,13 +44,11 @@ public class CircleInvitationController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetCircleInvitations(
-        Guid circleId,
-        // TODO: replace with: var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid imamId)
+    public async Task<IActionResult> GetCircleInvitations(Guid circleId)
     {
         try
         {
+            var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _service.GetCircleInvitationsAsync(circleId, imamId);
             return Ok(result.Select(ToDto));
         }
@@ -71,14 +67,11 @@ public class CircleInvitationController : ControllerBase
     }
 
     [HttpPost("{invitationId:guid}/accept")]
-    public async Task<IActionResult> Accept(
-        Guid circleId,
-        Guid invitationId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid userId)
+    public async Task<IActionResult> Accept(Guid circleId, Guid invitationId)
     {
         try
         {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             await _service.AcceptInvitationAsync(invitationId, userId);
             return Ok();
         }
@@ -101,14 +94,11 @@ public class CircleInvitationController : ControllerBase
     }
 
     [HttpPost("{invitationId:guid}/decline")]
-    public async Task<IActionResult> Decline(
-        Guid circleId,
-        Guid invitationId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid userId)
+    public async Task<IActionResult> Decline(Guid circleId, Guid invitationId)
     {
         try
         {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             await _service.DeclineInvitationAsync(invitationId, userId);
             return Ok();
         }
@@ -150,5 +140,4 @@ public class CircleInvitationController : ControllerBase
         RespondedAt = i.RespondedAt,
         CreatedAt = i.CreatedAt
     };
-
 }

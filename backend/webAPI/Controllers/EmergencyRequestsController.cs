@@ -1,9 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
+using System.Security.Claims;
 using webAPI.DTOs.Requests;
 using webAPI.DTOs.Responses;
-using Microsoft.AspNetCore.Authorization;
 
 namespace webAPI.Controllers;
 
@@ -20,13 +21,11 @@ public class EmergencyRequestsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<EmergencyRequestDto>>> GetCircleRequests(
-        Guid circleId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid requestingUserId)
+    public async Task<ActionResult<List<EmergencyRequestDto>>> GetCircleRequests(Guid circleId)
     {
         try
         {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var requests = await _emergencyRequestService.GetCircleRequestsAsync(circleId, requestingUserId);
             return Ok(requests.Select(ToDto).ToList());
         }
@@ -47,16 +46,17 @@ public class EmergencyRequestsController : ControllerBase
     {
         try
         {
+            var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var created = await _emergencyRequestService.SubmitRequestAsync(
                 circleId,
                 dto.AmountRequested,
                 dto.Description,
                 dto.SupportingContext,
-                dto.RequestingUserId);
+                requestingUserId);
 
             return CreatedAtAction(
                 nameof(GetCircleRequests),
-                new { circleId, requestingUserId = dto.RequestingUserId },
+                new { circleId },
                 ToDto(created));
         }
         catch (ArgumentException ex)
@@ -76,12 +76,11 @@ public class EmergencyRequestsController : ControllerBase
     [HttpPost("{requestId:guid}/approve")]
     public async Task<ActionResult<EmergencyRequestDto>> ApproveRequest(
         Guid circleId,
-        Guid requestId,
-        // TODO: replace with: var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid imamId)
+        Guid requestId)
     {
         try
         {
+            var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var updated = await _emergencyRequestService.ApproveRequestAsync(requestId, imamId);
             return Ok(ToDto(updated));
         }
@@ -111,10 +110,11 @@ public class EmergencyRequestsController : ControllerBase
     {
         try
         {
+            var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var updated = await _emergencyRequestService.RejectRequestAsync(
                 requestId,
                 dto.RejectionReason,
-                dto.ImamId);
+                imamId);
 
             return Ok(ToDto(updated));
         }
@@ -137,14 +137,11 @@ public class EmergencyRequestsController : ControllerBase
     }
 
     [HttpPost("{requestId:guid}/disburse")]
-    public async Task<IActionResult> DisburseEmergencyFunds(
-        Guid circleId,
-        Guid requestId,
-        // TODO: replace with: var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid imamId)
+    public async Task<IActionResult> DisburseEmergencyFunds(Guid circleId, Guid requestId)
     {
         try
         {
+            var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             await _emergencyRequestService.DisburseEmergencyFundsAsync(requestId, imamId);
             return NoContent();
         }

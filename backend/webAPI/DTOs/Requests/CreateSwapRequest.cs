@@ -7,7 +7,4 @@ public class CreateSwapRequest
     [Required]
     public Guid CycleId { get; set; }
 
-    // TODO: remove when JWT is wired
-    [Required]
-    public Guid RequestingUserId { get; set; }
 }

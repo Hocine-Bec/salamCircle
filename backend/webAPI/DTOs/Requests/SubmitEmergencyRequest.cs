@@ -15,6 +15,5 @@ public class SubmitEmergencyRequest
     [MaxLength(2000)]
     public string? SupportingContext { get; set; }
 
-    // TODO: remove when JWT is wired
-    public Guid RequestingUserId { get; set; }
+
 }
