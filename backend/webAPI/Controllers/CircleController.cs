@@ -55,29 +55,32 @@ public class CircleController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<CircleDto>> Create([FromBody] CreateCircleRequest dto)
+public async Task<ActionResult<CircleDto>> Create([FromBody] CreateCircleRequest dto)
+{
+    try
     {
-        try
-        {
-            var circle = new Circle
-            {
-                Name = dto.Name,
-                ImamId = dto.ImamId,
-                MinimumContribution = dto.MinimumContribution
-            };
+        var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-            var created = await _circleService.CreateAsync(circle);
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created.ToDto());
-        }
-        catch (ArgumentException ex)
+        var circle = new Circle
         {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
+            Name = dto.Name,
+            ImamId = imamId,
+            MinimumContribution = dto.MinimumContribution
+        };
+
+        var created = await _circleService.CreateAsync(circle);
+        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created.ToDto());
     }
+    catch (ArgumentException ex)
+    {
+        return BadRequest(new { message = ex.Message });
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return NotFound(new { message = ex.Message });
+    }
+}
+
 
     [HttpPut("{id:guid}")]
 public async Task<ActionResult<CircleDto>> Update(Guid id, [FromBody] UpdateCircleRequest dto)

@@ -21,9 +21,18 @@ public class NotificationsController : ControllerBase
         _notificationService = notificationService;
     }
 
+    private bool IsOwner(Guid userId)
+    {
+        var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        return requestingUserId == userId;
+    }
+
     [HttpGet]
     public async Task<ActionResult<List<NotificationDto>>> GetUserNotifications(Guid userId)
     {
+        if (!IsOwner(userId))
+            return Forbid();
+
         try
         {
             var notifications = await _notificationService.GetUserNotificationsAsync(userId);
@@ -33,15 +42,14 @@ public class NotificationsController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
     }
 
     [HttpGet("unread-count")]
     public async Task<ActionResult> GetUnreadCount(Guid userId)
     {
+        if (!IsOwner(userId))
+            return Forbid();
+
         try
         {
             var count = await _notificationService.GetUnreadCountAsync(userId);
@@ -51,15 +59,14 @@ public class NotificationsController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
     }
 
     [HttpPost("{notificationId:guid}/read")]
     public async Task<IActionResult> MarkAsRead(Guid userId, Guid notificationId)
     {
+        if (!IsOwner(userId))
+            return Forbid();
+
         try
         {
             await _notificationService.MarkAsReadAsync(notificationId, userId);
@@ -82,6 +89,9 @@ public class NotificationsController : ControllerBase
     [HttpPost("read-all")]
     public async Task<IActionResult> MarkAllAsRead(Guid userId)
     {
+        if (!IsOwner(userId))
+            return Forbid();
+
         try
         {
             await _notificationService.MarkAllAsReadAsync(userId);
@@ -91,15 +101,14 @@ public class NotificationsController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
     }
 
     [HttpDelete("{notificationId:guid}")]
     public async Task<IActionResult> DeleteNotification(Guid userId, Guid notificationId)
     {
+        if (!IsOwner(userId))
+            return Forbid();
+
         try
         {
             await _notificationService.DeleteNotificationAsync(notificationId, userId);
@@ -118,6 +127,4 @@ public class NotificationsController : ControllerBase
             return StatusCode(403, new { message = ex.Message });
         }
     }
-
-
 }

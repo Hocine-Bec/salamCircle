@@ -55,8 +55,12 @@ public class ContributionService : IContributionService
         if (activeMembers.Count == 0)
             throw new InvalidOperationException("No active members found for the circle.");
 
+ 
         var offset = ((cycle.CycleNumber - 1) * cycle.ContributorsPerCycle) % activeMembers.Count;
-        var slots = activeMembers.Skip(offset).Take(cycle.ContributorsPerCycle).ToList();
+        var slots = Enumerable.Range(0, cycle.ContributorsPerCycle)
+            .Select(i => activeMembers[(offset + i) % activeMembers.Count])
+            .ToList();
+
 
         // TODO: handle wrap-around when offset + ContributorsPerCycle exceeds member count
         if (!slots.Any(m => m.Id == member.Id))

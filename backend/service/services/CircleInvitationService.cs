@@ -9,13 +9,16 @@ public class InvitationService : IInvitationService
 {
     private readonly ICircleInvitationRepository _repository;
     private readonly ICircleMemberService _circleMemberService;
+    private readonly IUserRepository _userRepository;
 
     public InvitationService(
         ICircleInvitationRepository repository,
-        ICircleMemberService circleMemberService)
+        ICircleMemberService circleMemberService,
+        IUserRepository userRepository)
     {
         _repository = repository;
         _circleMemberService = circleMemberService;
+        _userRepository = userRepository;
     }
 
     public async Task<CircleInvitation> SendInvitationAsync(Guid circleId, string phoneNumber, Guid imamId)
@@ -29,11 +32,14 @@ public class InvitationService : IInvitationService
         if (string.IsNullOrWhiteSpace(phoneNumber))
             throw new ArgumentException("Phone number cannot be empty.", nameof(phoneNumber));
 
+        var invitedUser = await _userRepository.GetByPhoneAsync(phoneNumber)
+            ?? throw new KeyNotFoundException($"No user found with phone number '{phoneNumber}'.");
+
         var invitation = new CircleInvitation
         {
             CircleId = circleId,
             InvitedById = imamId,
-            // TODO: resolve InvitedUserId by looking up user with this phone number via IUserRepository
+            InvitedUserId = invitedUser.Id,
             Status = InvitationStatus.Pending
         };
 

@@ -52,11 +52,12 @@ public class ReminderService : IReminderService
             throw new InvalidOperationException("Maximum reminders reached for this member in this cycle.");
 
         var reminder = new Reminder
-        {
-            CycleId = cycleId,
-            SentToId = targetMemberId,
-            SentById = imamId
-        };
+{
+    CircleId = circle.Id,
+    CycleId = cycleId,
+    SentToId = targetMemberId,
+    SentById = imamId
+};
 
         var created = await _reminderRepository.CreateAsync(reminder);
 
