@@ -1,7 +1,7 @@
 using service.entities;
 using webAPI.DTOs.Responses;
 
-namespace webAPI.Extensions;
+namespace webAPI.Mapping;
 
 public static class MappingExtensions
 {

@@ -5,7 +5,7 @@ using webAPI.DTOs.Requests;
 using webAPI.DTOs.Responses;
 using Microsoft.AspNetCore.Authorization;
 using webAPI.Extensions;
-
+using webAPI.Mapping;
 
 namespace webAPI.Controllers;
 
@@ -48,29 +48,7 @@ public class UserController : ControllerBase
         return Ok(user.ToDto());
     }
 
-    [HttpPost]
-    public async Task<ActionResult<UserDto>> Create([FromBody] CreateUserRequest dto)
-    {
-        try
-        {
-            var user = new User
-            {
-                Name = dto.Name,
-                Phone = dto.Phone
-            };
-
-            var created = await _userService.CreateAsync(user);
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created.ToDto());
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
+    
 
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<UserDto>> Update(Guid id, [FromBody] UpdateUserRequest dto)

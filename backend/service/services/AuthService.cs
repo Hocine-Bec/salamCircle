@@ -65,9 +65,13 @@ public class AuthService : IAuthService
 
     private string GenerateJwtToken(Guid userId, string email, string name)
     {
-        var secretKey = _configuration["JwtSettings:SecretKey"];
-        var issuer = _configuration["JwtSettings:Issuer"];
-        var audience = _configuration["JwtSettings:Audience"];
+        var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET")
+             ?? _configuration["JwtSettings:SecretKey"];
+        var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
+            ?? _configuration["JwtSettings:Issuer"];
+        var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
+            ?? _configuration["JwtSettings:Audience"];
+
 
         if (string.IsNullOrWhiteSpace(secretKey))
             throw new InvalidOperationException("JWT secret key is not configured.");
