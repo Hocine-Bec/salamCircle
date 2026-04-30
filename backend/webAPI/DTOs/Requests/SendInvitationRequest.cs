@@ -5,8 +5,10 @@ namespace webAPI.DTOs.Requests;
 public class SendInvitationRequest
 {
     [Required]
-    public Guid CircleId { get; set; }
+    [Phone]
+    [MaxLength(20)]
+    public string PhoneNumber { get; set; } = string.Empty;
 
     [Required]
-    public Guid InvitedUserId { get; set; }
+    public Guid ImamId { get; set; }
 }

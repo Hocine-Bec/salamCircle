@@ -2,11 +2,13 @@ using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
 using webAPI.DTOs.Responses;
+using Microsoft.AspNetCore.Authorization;
 
 namespace webAPI.Controllers;
 
 [ApiController]
 [Route("api/users/{userId:guid}/notifications")]
+[Authorize]
 public class NotificationsController : ControllerBase
 {
     private readonly INotificationService _notificationService;

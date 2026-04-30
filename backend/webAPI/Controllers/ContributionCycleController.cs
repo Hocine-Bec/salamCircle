@@ -2,11 +2,13 @@
 using service.entities;
 using service.interfaces.services;
 using webAPI.DTOs.Responses;
+using Microsoft.AspNetCore.Authorization;
 
 namespace webAPI.Controllers;
 
 [ApiController]
 [Route("api/circles/{circleId:guid}/cycles")]
+[Authorize]
 public class ContributionCycleController : ControllerBase
 {
     private readonly IContributionCycleService _cycleService;

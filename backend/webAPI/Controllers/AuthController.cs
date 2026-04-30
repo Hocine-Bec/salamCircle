@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using service.interfaces.services;
+using Microsoft.AspNetCore.Authorization;
 
 using webAPI.DTOs.Requests;
 
@@ -16,6 +17,7 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
+    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest dto)
     {
@@ -34,6 +36,7 @@ public class AuthController : ControllerBase
         }
     }
 
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest dto)
     {

@@ -2,11 +2,13 @@ using Microsoft.AspNetCore.Mvc;
 using service.entities;
 using service.interfaces.services;
 using webAPI.DTOs.Responses;
+using Microsoft.AspNetCore.Authorization;
 
 namespace webAPI.Controllers;
 
 [ApiController]
 [Route("api/circles/{circleId:guid}/members")]
+[Authorize]
 public class CircleMembersController : ControllerBase
 {
     private readonly ICircleMemberService _circleMemberService;

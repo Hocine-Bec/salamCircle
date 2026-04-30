@@ -3,11 +3,13 @@ using service.entities;
 using service.enums;
 using service.interfaces.services;
 using webAPI.DTOs.Responses;
+using Microsoft.AspNetCore.Authorization;
 
 namespace webAPI.Controllers;
 
 [ApiController]
 [Route("api/circles/{circleId:guid}/logs")]
+[Authorize]
 public class TransparencyLogsController : ControllerBase
 {
     private readonly ITransparencyLogService _transparencyLogService;

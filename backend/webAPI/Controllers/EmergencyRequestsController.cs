@@ -3,11 +3,13 @@ using service.entities;
 using service.interfaces.services;
 using webAPI.DTOs.Requests;
 using webAPI.DTOs.Responses;
+using Microsoft.AspNetCore.Authorization;
 
 namespace webAPI.Controllers;
 
 [ApiController]
 [Route("api/circles/{circleId:guid}/emergency-requests")]
+[Authorize]
 public class EmergencyRequestsController : ControllerBase
 {
     private readonly IEmergencyRequestService _emergencyRequestService;

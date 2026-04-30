@@ -5,9 +5,12 @@ namespace webAPI.DTOs.Requests;
 public class SendReminderRequest
 {
     [Required]
-    public Guid CircleId { get; set; }
+    public Guid CycleId { get; set; }
 
     [Required]
-    [MaxLength(500)]
-    public string Message { get; set; } = string.Empty;
+    public Guid TargetMemberId { get; set; }
+
+    // TODO: remove when JWT is wired
+    [Required]
+    public Guid ImamId { get; set; }
 }

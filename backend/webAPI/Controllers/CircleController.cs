@@ -3,11 +3,13 @@ using service.entities;
 using service.interfaces.services;
 using webAPI.DTOs.Requests;
 using webAPI.DTOs.Responses;
+using Microsoft.AspNetCore.Authorization;
 
 namespace webAPI.Controllers;
 
 [ApiController]
 [Route("api/circles")]
+[Authorize]
 public class CircleController : ControllerBase
 {
     private readonly ICircleService _circleService;
