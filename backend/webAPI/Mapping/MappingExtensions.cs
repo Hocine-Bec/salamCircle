@@ -25,11 +25,12 @@ public static class MappingExtensions
         CreatedAt = c.CreatedAt
     };
 
-    public static CircleMemberDto ToDto(this CircleMember m) => new()
+   public static CircleMemberDto ToDto(this CircleMember m) => new()
     {
         Id = m.Id,
         CircleId = m.CircleId,
         UserId = m.UserId,
+        UserName = m.User?.Name ?? string.Empty,   // ← NEW
         QueuePosition = m.QueuePosition,
         Status = m.Status.ToString(),
         SwapCount = m.SwapCount,

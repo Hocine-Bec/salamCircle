@@ -118,11 +118,12 @@ public class CircleInvitationController : ControllerBase
         }
     }
 
-    [HttpGet("pending/{userId:guid}")]
-    public async Task<IActionResult> GetPending(Guid circleId, Guid userId)
+    [HttpGet("pending")]
+    public async Task<IActionResult> GetPending(Guid circleId)
     {
         try
         {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _service.GetPendingInvitationsAsync(userId);
             return Ok(result.Select(i => i.ToDto()).ToList());
         }

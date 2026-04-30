@@ -140,27 +140,6 @@ public async Task<ActionResult<CircleDto>> Update(Guid id, [FromBody] UpdateCirc
         }
     }
 
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
-    {
-        try
-        {
-            await _circleService.DeleteAsync(id);
-            return NoContent();
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
 
     [HttpGet("{id:guid}/dashboard")]
 public async Task<ActionResult<CircleDashboardDto>> GetDashboard(Guid id)

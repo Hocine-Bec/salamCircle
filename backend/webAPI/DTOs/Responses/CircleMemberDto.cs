@@ -5,6 +5,7 @@ public class CircleMemberDto
     public Guid Id { get; set; }
     public Guid CircleId { get; set; }
     public Guid UserId { get; set; }
+    public string UserName { get; set; } = string.Empty;  
     public int QueuePosition { get; set; }
     public string Status { get; set; } = string.Empty;
     public int SwapCount { get; set; }

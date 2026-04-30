@@ -16,14 +16,20 @@ public class CircleMemberRepository : ICircleMemberRepository
     }
 
     public async Task<CircleMember?> GetByIdAsync(Guid id)
-        => await _context.CircleMembers.FirstOrDefaultAsync(cm => cm.Id == id);
+        => await _context.CircleMembers
+            .Include(m => m.User)
+            .FirstOrDefaultAsync(cm => cm.Id == id);
 
     public async Task<CircleMember?> GetByCircleAndUserAsync(Guid circleId, Guid userId)
-        => await _context.CircleMembers.FirstOrDefaultAsync(cm =>
-            cm.CircleId == circleId && cm.UserId == userId);
+        => await _context.CircleMembers
+            .Include(m => m.User)
+            .FirstOrDefaultAsync(cm => cm.CircleId == circleId && cm.UserId == userId);
 
     public async Task<List<CircleMember>> GetByCircleIdAsync(Guid circleId)
-        => await _context.CircleMembers.Where(cm => cm.CircleId == circleId).ToListAsync();
+        => await _context.CircleMembers
+            .Include(m => m.User)
+            .Where(cm => cm.CircleId == circleId)
+            .ToListAsync();
 
     public async Task<int> GetMaxQueuePositionAsync(Guid circleId)
         => await _context.CircleMembers
