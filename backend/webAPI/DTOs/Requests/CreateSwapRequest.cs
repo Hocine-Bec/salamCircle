@@ -1,9 +1,12 @@
-// DTOs/Requests/PostSwapRequestDto.cs
+using System.ComponentModel.DataAnnotations;
+
 namespace webAPI.DTOs.Requests;
 
 public class CreateSwapRequest
 {
-    public Guid CycleId { get; set; }
-    // TODO: remove when JWT is wired
-    public Guid RequestingUserId { get; set; }
+    [Required]
+    public Guid CircleId { get; set; }
+
+    [Required]
+    public Guid RequestedWithUserId { get; set; }
 }

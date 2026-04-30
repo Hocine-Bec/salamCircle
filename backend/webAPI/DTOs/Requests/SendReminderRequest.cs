@@ -1,9 +1,13 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace webAPI.DTOs.Requests;
 
 public class SendReminderRequest
 {
-    public Guid CycleId { get; set; }
-    public Guid TargetMemberId { get; set; }
-    // TODO: remove when JWT is wired
-    public Guid ImamId { get; set; }
+    [Required]
+    public Guid CircleId { get; set; }
+
+    [Required]
+    [MaxLength(500)]
+    public string Message { get; set; } = string.Empty;
 }
