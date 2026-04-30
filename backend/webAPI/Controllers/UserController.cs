@@ -4,6 +4,8 @@ using service.interfaces.services;
 using webAPI.DTOs.Requests;
 using webAPI.DTOs.Responses;
 using Microsoft.AspNetCore.Authorization;
+using webAPI.Extensions;
+
 
 namespace webAPI.Controllers;
 
@@ -23,7 +25,7 @@ public class UserController : ControllerBase
     public async Task<ActionResult<List<UserDto>>> GetAll()
     {
         var users = await _userService.GetAllAsync();
-        return Ok(users.Select(ToDto).ToList());
+        return Ok(users.Select(u => u.ToDto()).ToList());
     }
 
     [HttpGet("{id:guid}")]
@@ -33,7 +35,7 @@ public class UserController : ControllerBase
         if (user is null)
             return NotFound(new { message = $"User with id '{id}' not found." });
 
-        return Ok(ToDto(user));
+        return Ok(user.ToDto());
     }
 
     [HttpGet("phone/{phone}")]
@@ -43,7 +45,7 @@ public class UserController : ControllerBase
         if (user is null)
             return NotFound(new { message = $"User with phone '{phone}' not found." });
 
-        return Ok(ToDto(user));
+        return Ok(user.ToDto());
     }
 
     [HttpPost]
@@ -58,7 +60,7 @@ public class UserController : ControllerBase
             };
 
             var created = await _userService.CreateAsync(user);
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, ToDto(created));
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created.ToDto());
         }
         catch (ArgumentException ex)
         {
@@ -83,7 +85,7 @@ public class UserController : ControllerBase
             };
 
             var updated = await _userService.UpdateAsync(user);
-            return Ok(ToDto(updated));
+            return Ok(updated.ToDto());
         }
         catch (ArgumentException ex)
         {
@@ -117,11 +119,5 @@ public class UserController : ControllerBase
         }
     }
 
-    private static UserDto ToDto(User user) => new()
-    {
-        Id = user.Id,
-        Name = user.Name,
-        Phone = user.Phone,
-        CreatedAt = user.CreatedAt
-    };
+ 
 }

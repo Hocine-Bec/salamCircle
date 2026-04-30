@@ -3,6 +3,9 @@ using service.entities;
 using service.interfaces.services;
 using webAPI.DTOs.Responses;
 using Microsoft.AspNetCore.Authorization;
+using webAPI.Extensions;
+using System.Security.Claims;
+
 
 namespace webAPI.Controllers;
 
@@ -20,14 +23,14 @@ public class ContributionCycleController : ControllerBase
 
     [HttpGet("active")]
     public async Task<ActionResult<ContributionCycleDto>> GetActiveCycle(
-        Guid circleId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid requestingUserId)
+        Guid circleId)
     {
+
+        var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         try
         {
             var cycle = await _cycleService.GetActiveCycleAsync(circleId, requestingUserId);
-            return Ok(ToDto(cycle));
+            return Ok(cycle.ToDto());
         }
         catch (ArgumentException ex)
         {
@@ -41,14 +44,13 @@ public class ContributionCycleController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<List<ContributionCycleDto>>> GetAllCycles(
-        Guid circleId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid requestingUserId)
+        Guid circleId)
     {
+        var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         try
         {
             var cycles = await _cycleService.GetAllCyclesAsync(circleId, requestingUserId);
-            return Ok(cycles.Select(ToDto).ToList());
+            return Ok(cycles.Select(c => c.ToDto()).ToList());
         }
         catch (ArgumentException ex)
         {
@@ -62,16 +64,13 @@ public class ContributionCycleController : ControllerBase
 
     [HttpPost("start-next")]
     public async Task<ActionResult<ContributionCycleDto>> StartNextCycle(
-        Guid circleId,
-        // TODO: replace with: var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid imamId)
+        Guid circleId)
     {
+        var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         try
         {
             var cycle = await _cycleService.StartNextCycleAsync(circleId, imamId);
-            return CreatedAtAction(nameof(GetActiveCycle),
-                new { circleId, requestingUserId = imamId },
-                ToDto(cycle));
+            return CreatedAtAction(nameof(GetActiveCycle), new { circleId }, cycle.ToDto());
         }
         catch (ArgumentException ex)
         {
@@ -91,15 +90,5 @@ public class ContributionCycleController : ControllerBase
         }
     }
 
-    private static ContributionCycleDto ToDto(ContributionCycle cycle) => new()
-    {
-        Id = cycle.Id,
-        CircleId = cycle.CircleId,
-        CycleNumber = cycle.CycleNumber,
-        Month = cycle.Month,
-        Year = cycle.Year,
-        Status = cycle.Status,
-        ContributorsPerCycle = cycle.ContributorsPerCycle,
-        CreatedAt = cycle.CreatedAt
-    };
+    
 }

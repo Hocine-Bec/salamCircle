@@ -5,6 +5,8 @@ using webAPI.DTOs.Requests;
 using webAPI.DTOs.Responses;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using webAPI.Extensions;
+
 
 namespace webAPI.Controllers;
 
@@ -51,14 +53,13 @@ public async Task<IActionResult> SendReminder(Guid circleId, [FromBody] SendRemi
     [HttpGet("member/{memberId:guid}")]
     public async Task<ActionResult<List<ReminderDto>>> GetMemberReminders(
         Guid circleId,
-        Guid memberId,
-        // TODO: replace with: var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        [FromQuery] Guid requestingUserId)
+        Guid memberId)
     {
+        var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         try
         {
             var reminders = await _reminderService.GetMemberRemindersAsync(memberId, requestingUserId);
-            return Ok(reminders.Select(ToDto).ToList());
+            return Ok(reminders.Select(r => r.ToDto()).ToList());
         }
         catch (ArgumentException ex)
         {
@@ -74,13 +75,5 @@ public async Task<IActionResult> SendReminder(Guid circleId, [FromBody] SendRemi
         }
     }
 
-    private static ReminderDto ToDto(Reminder r) => new()
-    {
-        Id = r.Id,
-        CircleId = r.CircleId,
-        CycleId = r.CycleId,
-        SentById = r.SentById,
-        SentToId = r.SentToId,
-        CreatedAt = r.CreatedAt
-    };
+
 }

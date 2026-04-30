@@ -3,6 +3,9 @@ using service.entities;
 using service.interfaces.services;
 using webAPI.DTOs.Responses;
 using Microsoft.AspNetCore.Authorization;
+using webAPI.Extensions;
+using System.Security.Claims;
+
 
 namespace webAPI.Controllers;
 
@@ -24,7 +27,7 @@ public class NotificationsController : ControllerBase
         try
         {
             var notifications = await _notificationService.GetUserNotificationsAsync(userId);
-            return Ok(notifications.Select(ToDto).ToList());
+            return Ok(notifications.Select(n => n.ToDto()).ToList());
         }
         catch (ArgumentException ex)
         {
@@ -116,16 +119,5 @@ public class NotificationsController : ControllerBase
         }
     }
 
-    private static NotificationDto ToDto(Notification notification) => new()
-    {
-        Id = notification.Id,
-        UserId = notification.UserId,
-        CircleId = notification.CircleId,
-        Type = notification.Type.ToString(),
-        Title = notification.Title,
-        Body = notification.Body,
-        IsRead = notification.IsRead,
-        ReadAt = notification.ReadAt,
-        CreatedAt = notification.CreatedAt
-    };
+
 }

@@ -5,6 +5,8 @@ using service.interfaces.services;
 using System.Security.Claims;
 using webAPI.DTOs.Requests;
 using webAPI.DTOs.Responses;
+using webAPI.Extensions;
+
 
 namespace webAPI.Controllers;
 
@@ -27,7 +29,7 @@ public class ContributionController : ControllerBase
         {
             var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _service.GetCycleContributionsAsync(cycleId, requestingUserId);
-            return Ok(result.Select(ToDto));
+            return Ok(result.Select(c => c.ToDto()));
         }
         catch (ArgumentException ex)
         {
@@ -46,7 +48,7 @@ public class ContributionController : ControllerBase
         {
             var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _service.GetMemberContributionHistoryAsync(circleId, requestingUserId);
-            return Ok(result.Select(ToDto));
+            return Ok(result.Select(c => c.ToDto()));
         }
         catch (ArgumentException ex)
         {
@@ -91,7 +93,7 @@ public class ContributionController : ControllerBase
             return CreatedAtAction(
                 nameof(GetByCycle),
                 new { circleId, cycleId = contribution.CycleId },
-                ToDto(contribution));
+                contribution.ToDto());
         }
         catch (ArgumentException ex)
         {
@@ -107,15 +109,5 @@ public class ContributionController : ControllerBase
         }
     }
 
-    private static ContributionDto ToDto(Contribution c) => new()
-    {
-        Id = c.Id,
-        CycleId = c.CycleId,
-        CircleId = c.CircleId,
-        MemberId = c.MemberId,
-        Amount = c.Amount,
-        Status = c.Status,
-        ContributedAt = c.ContributedAt,
-        CreatedAt = c.CreatedAt
-    };
+
 }

@@ -5,6 +5,8 @@ using service.interfaces.services;
 using System.Security.Claims;
 using webAPI.DTOs.Requests;
 using webAPI.DTOs.Responses;
+using webAPI.Extensions;
+
 
 namespace webAPI.Controllers;
 
@@ -27,7 +29,7 @@ public class CircleInvitationController : ControllerBase
         {
             var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _service.SendInvitationAsync(circleId, dto.PhoneNumber, imamId);
-            return Ok(ToDto(result));
+            return Ok(result.ToDto());
         }
         catch (ArgumentException ex)
         {
@@ -50,7 +52,7 @@ public class CircleInvitationController : ControllerBase
         {
             var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _service.GetCircleInvitationsAsync(circleId, imamId);
-            return Ok(result.Select(ToDto));
+            return Ok(result.Select(i => i.ToDto()));
         }
         catch (ArgumentException ex)
         {
@@ -122,7 +124,7 @@ public class CircleInvitationController : ControllerBase
         try
         {
             var result = await _service.GetPendingInvitationsAsync(userId);
-            return Ok(result.Select(ToDto));
+            return Ok(result.Select(i => i.ToDto()).ToList());
         }
         catch (ArgumentException ex)
         {
@@ -130,14 +132,5 @@ public class CircleInvitationController : ControllerBase
         }
     }
 
-    private static CircleInvitationDto ToDto(CircleInvitation i) => new()
-    {
-        Id = i.Id,
-        CircleId = i.CircleId,
-        InvitedById = i.InvitedById,
-        InvitedUserId = i.InvitedUserId,
-        Status = i.Status,
-        RespondedAt = i.RespondedAt,
-        CreatedAt = i.CreatedAt
-    };
+  
 }

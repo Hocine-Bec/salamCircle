@@ -69,7 +69,7 @@ public class CircleService : ICircleService
         return created;
     }
 
-    public async Task<Circle> UpdateAsync(Circle circle)
+    public async Task<Circle> UpdateAsync(Circle circle, Guid imamId)
 {
     if (circle is null)
         throw new ArgumentNullException(nameof(circle));
@@ -80,19 +80,24 @@ public class CircleService : ICircleService
     if (circle.MinimumContribution <= 0)
         throw new ArgumentException("Minimum contribution must be greater than zero.", nameof(circle));
 
+    if (imamId == Guid.Empty)
+        throw new ArgumentException("Imam id cannot be empty.", nameof(imamId));
+
     var existing = await _circleRepository.GetByIdAsync(circle.Id)
         ?? throw new KeyNotFoundException($"Circle with id '{circle.Id}' not found.");
+
+    if (existing.ImamId != imamId)
+        throw new UnauthorizedAccessException("Only the imam may update the circle.");
 
     if (existing.Status == CircleStatus.Closed)
         throw new InvalidOperationException("Cannot update a closed circle.");
 
-    // TODO: when JWT is wired, verify caller is the Imam before allowing any update
-    // TODO: Imam ownership transfer (changing ImamId) needs separate dedicated endpoint with extra validation
     existing.Name = circle.Name;
     existing.MinimumContribution = circle.MinimumContribution;
 
     return await _circleRepository.UpdateAsync(existing);
 }
+
 
     public async Task DeleteAsync(Guid circleId)
     {

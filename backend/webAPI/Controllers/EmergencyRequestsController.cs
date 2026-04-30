@@ -5,6 +5,8 @@ using service.interfaces.services;
 using System.Security.Claims;
 using webAPI.DTOs.Requests;
 using webAPI.DTOs.Responses;
+using webAPI.Extensions;
+
 
 namespace webAPI.Controllers;
 
@@ -27,7 +29,7 @@ public class EmergencyRequestsController : ControllerBase
         {
             var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var requests = await _emergencyRequestService.GetCircleRequestsAsync(circleId, requestingUserId);
-            return Ok(requests.Select(ToDto).ToList());
+            return Ok(requests.Select(r => r.ToDto()).ToList());
         }
         catch (ArgumentException ex)
         {
@@ -57,7 +59,7 @@ public class EmergencyRequestsController : ControllerBase
             return CreatedAtAction(
                 nameof(GetCircleRequests),
                 new { circleId },
-                ToDto(created));
+                created.ToDto());
         }
         catch (ArgumentException ex)
         {
@@ -82,7 +84,7 @@ public class EmergencyRequestsController : ControllerBase
         {
             var imamId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var updated = await _emergencyRequestService.ApproveRequestAsync(requestId, imamId);
-            return Ok(ToDto(updated));
+            return Ok(updated.ToDto());
         }
         catch (ArgumentException ex)
         {
@@ -116,7 +118,7 @@ public async Task<ActionResult<EmergencyRequestDto>> RejectRequest(
             dto.RejectionReason,
             imamId);
 
-        return Ok(ToDto(updated));
+        return Ok(updated.ToDto());
     }
     catch (ArgumentException ex)
     {
@@ -164,18 +166,4 @@ public async Task<ActionResult<EmergencyRequestDto>> RejectRequest(
         }
     }
 
-    private static EmergencyRequestDto ToDto(EmergencyRequest r) => new()
-    {
-        Id = r.Id,
-        CircleId = r.CircleId,
-        RequestedById = r.RequestedById,
-        AmountRequested = r.AmountRequested,
-        Description = r.Description,
-        SupportingContext = r.SupportingContext,
-        Status = r.Status.ToString(),
-        ReviewedById = r.ReviewedById,
-        ReviewedAt = r.ReviewedAt,
-        RejectionReason = r.RejectionReason,
-        CreatedAt = r.CreatedAt
-    };
 }

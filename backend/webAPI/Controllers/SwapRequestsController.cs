@@ -5,6 +5,8 @@ using service.interfaces.services;
 using System.Security.Claims;
 using webAPI.DTOs.Requests;
 using webAPI.DTOs.Responses;
+using webAPI.Extensions;
+
 
 namespace webAPI.Controllers;
 
@@ -27,7 +29,7 @@ public class SwapRequestsController : ControllerBase
         {
             var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var requests = await _swapService.GetOpenSwapRequestsAsync(circleId, requestingUserId);
-            return Ok(requests.Select(ToDto).ToList());
+            return Ok(requests.Select(s => s.ToDto()).ToList());
         }
         catch (ArgumentException ex)
         {
@@ -51,7 +53,7 @@ public class SwapRequestsController : ControllerBase
             return CreatedAtAction(
                 nameof(GetOpenSwapRequests),
                 new { circleId },
-                ToDto(created));
+                created.ToDto());
         }
         catch (ArgumentException ex)
         {
@@ -76,7 +78,7 @@ public class SwapRequestsController : ControllerBase
         {
             var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var updated = await _swapService.AcceptSwapRequestAsync(swapRequestId, requestingUserId);
-            return Ok(ToDto(updated));
+            return Ok(updated.ToDto());
         }
         catch (ArgumentException ex)
         {
@@ -92,17 +94,5 @@ public class SwapRequestsController : ControllerBase
         }
     }
 
-    private static SwapRequestDto ToDto(SwapRequest s) => new()
-    {
-        Id = s.Id,
-        CircleId = s.CircleId,
-        CycleId = s.CycleId,
-        RequesterId = s.RequesterId,
-        AcceptorId = s.AcceptorId,
-        RequesterOriginalPosition = s.RequesterOriginalPosition,
-        AcceptorOriginalPosition = s.AcceptorOriginalPosition,
-        Status = s.Status.ToString(),
-        AcceptedAt = s.AcceptedAt,
-        CreatedAt = s.CreatedAt
-    };
+
 }

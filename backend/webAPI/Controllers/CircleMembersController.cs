@@ -4,6 +4,8 @@ using service.entities;
 using service.interfaces.services;
 using System.Security.Claims;
 using webAPI.DTOs.Responses;
+using webAPI.Extensions;
+
 
 namespace webAPI.Controllers;
 
@@ -26,7 +28,7 @@ public class CircleMembersController : ControllerBase
         {
             var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var members = await _circleMemberService.GetCircleMembersAsync(circleId, requestingUserId);
-            return Ok(members.Select(ToDto).ToList());
+            return Ok(members.Select(m => m.ToDto()).ToList());
         }
         catch (ArgumentException ex)
         {
@@ -45,7 +47,7 @@ public class CircleMembersController : ControllerBase
         {
             var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var queue = await _circleMemberService.GetContributionQueueAsync(circleId, requestingUserId);
-            return Ok(queue.Select(ToDto).ToList());
+            return Ok(queue.Select(m => m.ToDto()).ToList());
         }
         catch (ArgumentException ex)
         {
@@ -167,14 +169,5 @@ public class CircleMembersController : ControllerBase
         }
     }
 
-    private static CircleMemberDto ToDto(CircleMember member) => new()
-    {
-        Id = member.Id,
-        CircleId = member.CircleId,
-        UserId = member.UserId,
-        QueuePosition = member.QueuePosition,
-        Status = member.Status.ToString(),
-        SwapCount = member.SwapCount,
-        JoinedAt = member.JoinedAt
-    };
+   
 }
