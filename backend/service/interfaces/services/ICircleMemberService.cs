@@ -12,4 +12,6 @@ public interface ICircleMemberService
     Task ShuffleQueueAsync(Guid circleId, Guid imamId);
     Task<List<CircleMember>> GetContributionQueueAsync(Guid circleId, Guid requestingUserId);
     Task CompactQueuePositionsAsync(Guid circleId);
+
+    Task<bool> IsActiveMemberAsync(Guid circleId, Guid userId);
 }

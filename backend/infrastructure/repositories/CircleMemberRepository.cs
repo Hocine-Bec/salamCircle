@@ -19,20 +19,32 @@ public class CircleMemberRepository : ICircleMemberRepository
         => await _context.CircleMembers.FirstOrDefaultAsync(cm => cm.Id == id);
 
     public async Task<CircleMember?> GetByCircleAndUserAsync(Guid circleId, Guid userId)
-        => await _context.CircleMembers.FirstOrDefaultAsync(cm => cm.CircleId == circleId
-                                              && cm.UserId == userId);
+        => await _context.CircleMembers.FirstOrDefaultAsync(cm =>
+            cm.CircleId == circleId && cm.UserId == userId);
 
     public async Task<List<CircleMember>> GetByCircleIdAsync(Guid circleId)
         => await _context.CircleMembers.Where(cm => cm.CircleId == circleId).ToListAsync();
 
     public async Task<int> GetMaxQueuePositionAsync(Guid circleId)
-        => await _context.CircleMembers.Where(cm => cm.CircleId == circleId).MaxAsync(cm => (int?)cm.QueuePosition) ?? 0;
+        => await _context.CircleMembers
+            .Where(cm => cm.CircleId == circleId && cm.Status == MemberStatus.Active)
+            .MaxAsync(cm => (int?)cm.QueuePosition) ?? 0;
 
     public async Task<int> CountActiveAsync(Guid circleId)
-        => await _context.CircleMembers.CountAsync(cm => cm.CircleId == circleId && cm.Status == MemberStatus.Active);
+        => await _context.CircleMembers
+            .CountAsync(cm => cm.CircleId == circleId && cm.Status == MemberStatus.Active);
 
+    // Kept for backward compatibility — returns true for ANY status
     public async Task<bool> IsMemberAsync(Guid circleId, Guid userId)
-        => await _context.CircleMembers.AnyAsync(cm => cm.CircleId == circleId && cm.UserId == userId);
+        => await _context.CircleMembers.AnyAsync(cm =>
+            cm.CircleId == circleId && cm.UserId == userId);
+
+    // US-05 fix — only returns true if the member is currently Active
+    public async Task<bool> IsActiveMemberAsync(Guid circleId, Guid userId)
+        => await _context.CircleMembers.AnyAsync(cm =>
+            cm.CircleId == circleId
+            && cm.UserId == userId
+            && cm.Status == MemberStatus.Active);
 
     public async Task<CircleMember> CreateAsync(CircleMember member)
     {

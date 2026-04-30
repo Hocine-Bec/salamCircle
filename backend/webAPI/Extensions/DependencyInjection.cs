@@ -49,27 +49,31 @@ public static class DependencyInjection
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IAuthService, AuthService>();
 
+      
+
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
+        .AddJwtBearer(options =>
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
-                ?? configuration["JwtSettings:Issuer"],
-            ValidAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
-                ?? configuration["JwtSettings:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
+                    ?? configuration["JwtSettings:Issuer"],
+                ValidAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
+                    ?? configuration["JwtSettings:Audience"],
+                IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(
                     Environment.GetEnvironmentVariable("JWT_SECRET")
                     ?? configuration["JwtSettings:SecretKey"]
                     ?? string.Empty))
-        };
-    });
+            };
 
+
+
+        });
 
         services.AddAuthorization();
 

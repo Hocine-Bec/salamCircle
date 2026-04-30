@@ -162,4 +162,33 @@ public async Task<ActionResult<CircleDto>> Update(Guid id, [FromBody] UpdateCirc
         }
     }
 
+    [HttpGet("{id:guid}/dashboard")]
+public async Task<ActionResult<CircleDashboardDto>> GetDashboard(Guid id)
+{
+    try
+    {
+        var requestingUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var dashboard = await _circleService.GetDashboardAsync(id, requestingUserId);
+
+        return Ok(new CircleDashboardDto
+        {
+            CircleId    = dashboard.CircleId,
+            CircleName  = dashboard.CircleName,
+            Balance     = dashboard.Balance,
+            MemberCount = dashboard.MemberCount,
+            ContributorsPerMonth = dashboard.ContributorsPerMonth,
+            CurrentContributors  = dashboard.CurrentContributors.Select(m => m.ToDto()).ToList(),
+            NextContributors     = dashboard.NextContributors.Select(m => m.ToDto()).ToList()
+        });
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return NotFound(new { message = ex.Message });
+    }
+    catch (UnauthorizedAccessException ex)
+    {
+        return StatusCode(403, new { message = ex.Message });
+    }
+}
+
 }

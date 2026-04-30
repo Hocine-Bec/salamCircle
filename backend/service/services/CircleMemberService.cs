@@ -24,6 +24,8 @@ public class CircleMemberService : ICircleMemberService
         _transparencyLogService = transparencyLogService;
     }
 
+    public async Task<bool> IsActiveMemberAsync(Guid circleId, Guid userId)
+        => await _circleMemberRepository.IsActiveMemberAsync(circleId, userId);
     public async Task<List<CircleMember>> GetCircleMembersAsync(Guid circleId, Guid requestingUserId)
     {
         if (circleId == Guid.Empty)
@@ -39,47 +41,94 @@ public class CircleMemberService : ICircleMemberService
     }
 
     public async Task<CircleMember> AddMemberAsync(Guid circleId, Guid userId, Guid imamId)
+{
+    if (circleId == Guid.Empty)
+        throw new ArgumentException("Circle id cannot be empty.", nameof(circleId));
+
+    if (userId == Guid.Empty)
+        throw new ArgumentException("User id cannot be empty.", nameof(userId));
+
+    if (imamId == Guid.Empty)
+        throw new ArgumentException("Imam id cannot be empty.", nameof(imamId));
+
+    var circle = await _circleRepository.GetByIdAsync(circleId)
+        ?? throw new KeyNotFoundException($"Circle with id '{circleId}' not found.");
+
+    if (circle.Status == CircleStatus.Closed)
+        throw new InvalidOperationException("Cannot join a closed circle.");
+
+    // US-05 fix: check only ACTIVE membership — removed/exited members can rejoin
+    if (await _circleMemberRepository.IsActiveMemberAsync(circleId, userId))
+        throw new InvalidOperationException("User is already an active member of this circle.");
+
+    var maxPosition = await _circleMemberRepository.GetMaxQueuePositionAsync(circleId);
+    var joinedAt = DateTime.UtcNow;
+
+    var newMember = new CircleMember
     {
-        if (circleId == Guid.Empty)
-            throw new ArgumentException("Circle id cannot be empty.", nameof(circleId));
+        CircleId = circleId,
+        UserId = userId,
+        QueuePosition = maxPosition + 1,
+        Status = MemberStatus.Active,
+        JoinedAt = joinedAt
+    };
 
-        if (userId == Guid.Empty)
-            throw new ArgumentException("User id cannot be empty.", nameof(userId));
+    var createdMember = await _circleMemberRepository.CreateAsync(newMember);
+    await UpdateContributorsPerMonthAsync(circleId);
 
-        if (imamId == Guid.Empty)
-            throw new ArgumentException("Imam id cannot be empty.", nameof(imamId));
+    await _transparencyLogService.LogAsync(
+        circleId,
+        LogEventType.MemberJoined,
+        $"Member '{userId}' joined the circle.",
+        actorId: imamId,
+        targetId: userId);
 
-        var circle = await _circleRepository.GetByIdAsync(circleId)
-            ?? throw new KeyNotFoundException($"Circle with id '{circleId}' not found.");
+    // US-10: If multiple members joined today, randomly shuffle their queue positions
+    await ShuffleSameDayJoinersAsync(circleId, joinedAt, imamId);
 
-        if (circle.ImamId != imamId)
-            throw new UnauthorizedAccessException("Only the imam may add members.");
-
-        if (await _circleMemberRepository.IsMemberAsync(circleId, userId))
-            throw new InvalidOperationException("User is already an active member of the circle.");
-
-        var maxPosition = await _circleMemberRepository.GetMaxQueuePositionAsync(circleId);
-        var newMember = new CircleMember
-        {
-            CircleId = circleId,
-            UserId = userId,
-            QueuePosition = maxPosition + 1,
-            Status = MemberStatus.Active,
-            JoinedAt = DateTime.UtcNow
-        };
-
-        var createdMember = await _circleMemberRepository.CreateAsync(newMember);
-        await UpdateContributorsPerMonthAsync(circleId);
-
-        await _transparencyLogService.LogAsync(
-            circleId,
-            LogEventType.MemberJoined,
-            $"Member '{userId}' joined the circle.",
-            actorId: imamId,
-            targetId: userId);
-
-        return createdMember;
+    return createdMember;
     }
+
+    private async Task ShuffleSameDayJoinersAsync(Guid circleId, DateTime joinedAt, Guid imamId)
+{
+    var allMembers = await _circleMemberRepository.GetByCircleIdAsync(circleId);
+
+    // Get all active members who joined on the same UTC date
+    var sameDayJoiners = allMembers
+        .Where(m => m.Status == MemberStatus.Active
+                    && m.JoinedAt.Date == joinedAt.Date)
+        .ToList();
+
+    // Only shuffle if 2 or more members joined today
+    if (sameDayJoiners.Count < 2)
+        return;
+
+    // Grab the queue positions they currently occupy
+    var positions = sameDayJoiners.Select(m => m.QueuePosition).ToList();
+
+    // Fisher-Yates shuffle
+    var rng = new Random();
+    for (var i = positions.Count - 1; i > 0; i--)
+    {
+        var j = rng.Next(i + 1);
+        (positions[i], positions[j]) = (positions[j], positions[i]);
+    }
+
+    // Reassign shuffled positions
+    for (var i = 0; i < sameDayJoiners.Count; i++)
+    {
+        sameDayJoiners[i].QueuePosition = positions[i];
+        await _circleMemberRepository.UpdateAsync(sameDayJoiners[i]);
+    }
+
+    // US-10: Log the shuffle so it's visible to all members (immutable, transparent)
+    var memberIds = string.Join(", ", sameDayJoiners.Select(m => m.UserId));
+    await _transparencyLogService.LogAsync(
+        circleId,
+        LogEventType.QueueShuffled,
+        $"Queue positions were randomly shuffled for {sameDayJoiners.Count} members who joined on the same day ({joinedAt:yyyy-MM-dd}). Members: [{memberIds}].",
+        actorId: imamId);
+}
 
     // Recalculates how many members contribute per month based on circle size,
     // then notifies everyone if the number goes up.

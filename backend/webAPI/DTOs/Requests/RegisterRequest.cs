@@ -16,10 +16,10 @@ public class RegisterRequest
     [Required]
     [Phone]
     [MaxLength(20)]
-    public string Phone { get; set; } = string.Empty; 
+    public string Phone { get; set; } = string.Empty;
 
     [Required]
-    [MinLength(6)]
+    [MinLength(8)]   // ← was 6, US-01 requires min 8
     [MaxLength(100)]
     public string Password { get; set; } = string.Empty;
 }

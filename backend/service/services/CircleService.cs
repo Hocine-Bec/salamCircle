@@ -2,12 +2,17 @@
 using service.enums;
 using service.interfaces.repositories;
 using service.interfaces.services;
+using service.models;
 
 namespace service.services;
 
 public class CircleService : ICircleService
 {
+    
+    private readonly IContributionRepository _contributionRepository;
+
     private readonly ICircleRepository _circleRepository;
+
     private readonly ITransparencyLogService _transparencyLogService;
     private readonly ICircleMemberRepository _circleMemberRepository;
     private readonly INotificationService _notificationService;
@@ -16,14 +21,15 @@ public class CircleService : ICircleService
         ICircleRepository circleRepository,
         ITransparencyLogService transparencyLogService,
         ICircleMemberRepository circleMemberRepository,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IContributionRepository contributionRepository)   
     {
         _circleRepository = circleRepository;
         _transparencyLogService = transparencyLogService;
         _circleMemberRepository = circleMemberRepository;
         _notificationService = notificationService;
+        _contributionRepository = contributionRepository; 
     }
-
     public async Task<Circle?> GetByIdAsync(Guid circleId)
     {
         if (circleId == Guid.Empty)
@@ -156,4 +162,47 @@ public class CircleService : ICircleService
                 body: $"The circle \"{circle.Name}\" has been officially closed by the Imam. Jazak Allahu khayran for your participation.");
         }
     }
+
+    // US-07: Single dashboard endpoint — balance, member count, current + next contributors
+public async Task<CircleDashboard> GetDashboardAsync(Guid circleId, Guid requestingUserId)
+{
+    if (circleId == Guid.Empty)
+        throw new ArgumentException("Circle id cannot be empty.", nameof(circleId));
+
+    if (requestingUserId == Guid.Empty)
+        throw new ArgumentException("Requesting user id cannot be empty.", nameof(requestingUserId));
+
+    var circle = await _circleRepository.GetByIdAsync(circleId)
+        ?? throw new KeyNotFoundException($"Circle with id '{circleId}' not found.");
+
+    // Only members of the circle can see the dashboard
+    var isMember = await _circleMemberRepository.IsActiveMemberAsync(circleId, requestingUserId);
+    if (!isMember && circle.ImamId != requestingUserId)
+        throw new UnauthorizedAccessException("You are not a member of this circle.");
+
+    var balance = await _contributionRepository.GetTotalByCircleIdAsync(circleId);
+    var activeMembers = (await _circleMemberRepository.GetByCircleIdAsync(circleId))
+        .Where(m => m.Status == MemberStatus.Active)
+        .OrderBy(m => m.QueuePosition)
+        .ToList();
+
+    var contributorsPerMonth = circle.ContributorsPerMonth;
+
+    // Current contributors = first N members in the queue
+    var current = activeMembers.Take(contributorsPerMonth).ToList();
+
+    // Next contributors = the N members after the current batch
+    var next = activeMembers.Skip(contributorsPerMonth).Take(contributorsPerMonth).ToList();
+
+    return new CircleDashboard
+    {
+        CircleId = circle.Id,
+        CircleName = circle.Name,
+        Balance = balance,
+        MemberCount = activeMembers.Count,
+        ContributorsPerMonth = contributorsPerMonth,
+        CurrentContributors = current,
+        NextContributors = next
+    };
+}
 }

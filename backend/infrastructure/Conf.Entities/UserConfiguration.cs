@@ -1,4 +1,3 @@
-// UserConfiguration.cs
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using service.entities;
@@ -25,8 +24,11 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsUnique();
 
         builder.Property(u => u.Phone)
-            .IsRequired(false)
+            .IsRequired()           
             .HasMaxLength(20);
+
+        builder.HasIndex(u => u.Phone)
+            .IsUnique();          
 
         builder.Property(u => u.PasswordHash)
             .IsRequired()

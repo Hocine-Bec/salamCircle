@@ -25,15 +25,22 @@ public class AuthService : IAuthService
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name cannot be empty.", nameof(name));
 
+        if (string.IsNullOrWhiteSpace(phone))
+            throw new ArgumentException("Phone cannot be empty.", nameof(phone));
+
         if (string.IsNullOrWhiteSpace(email))
             throw new ArgumentException("Email cannot be empty.", nameof(email));
 
         if (string.IsNullOrWhiteSpace(password))
             throw new ArgumentException("Password cannot be empty.", nameof(password));
 
-        
-         if (string.IsNullOrWhiteSpace(phone))
-            throw new ArgumentException("Phone cannot be empty.", nameof(phone));
+        // Keep US-01 fix: password ≥ 8 chars
+        if (password.Length < 8)
+            throw new ArgumentException("Password must be at least 8 characters.", nameof(password));
+
+        // Keep US-01 fix: phone unique
+        if (await _userRepository.ExistsAsync(phone))
+            throw new InvalidOperationException($"Phone number '{phone}' is already registered.");
 
         if (await _userRepository.ExistsByEmailAsync(email))
             throw new InvalidOperationException($"Email '{email}' is already in use.");
@@ -75,7 +82,6 @@ public class AuthService : IAuthService
             ?? _configuration["JwtSettings:Issuer"];
         var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
             ?? _configuration["JwtSettings:Audience"];
-
 
         if (string.IsNullOrWhiteSpace(secretKey))
             throw new InvalidOperationException("JWT secret key is not configured.");

@@ -28,43 +28,51 @@ public class InvitationService : IInvitationService
     }
 
     public async Task<CircleInvitation> SendInvitationAsync(Guid circleId, string phoneNumber, Guid imamId)
+{
+    if (circleId == Guid.Empty)
+        throw new ArgumentException("Circle id cannot be empty.", nameof(circleId));
+
+    if (imamId == Guid.Empty)
+        throw new ArgumentException("Imam id cannot be empty.", nameof(imamId));
+
+    if (string.IsNullOrWhiteSpace(phoneNumber))
+        throw new ArgumentException("Phone number cannot be empty.", nameof(phoneNumber));
+
+    // US-05: user must be registered
+    var invitedUser = await _userRepository.GetByPhoneAsync(phoneNumber)
+        ?? throw new KeyNotFoundException($"No user found with phone number '{phoneNumber}'.");
+
+    var circle = await _circleRepository.GetByIdAsync(circleId)
+        ?? throw new KeyNotFoundException($"Circle with id '{circleId}' not found.");
+
+    if (circle.Status == CircleStatus.Closed)
+        throw new InvalidOperationException("Cannot invite members to a closed circle.");
+
+    // US-05: error if already an ACTIVE member — removed/exited members can be re-invited
+    var alreadyMember = await _circleMemberService.IsActiveMemberAsync(circleId, invitedUser.Id);
+    if (alreadyMember)
+        throw new InvalidOperationException(
+            $"User with phone '{phoneNumber}' is already an active member of this circle.");
+
+    var invitation = new CircleInvitation
     {
-        if (circleId == Guid.Empty)
-            throw new ArgumentException("Circle id cannot be empty.", nameof(circleId));
+        CircleId = circleId,
+        InvitedById = imamId,
+        InvitedUserId = invitedUser.Id,
+        Status = InvitationStatus.Pending
+    };
 
-        if (imamId == Guid.Empty)
-            throw new ArgumentException("Imam id cannot be empty.", nameof(imamId));
+    var created = await _repository.CreateAsync(invitation);
 
-        if (string.IsNullOrWhiteSpace(phoneNumber))
-            throw new ArgumentException("Phone number cannot be empty.", nameof(phoneNumber));
+    await _notificationService.SendAsync(
+        userId: invitedUser.Id,
+        circleId: circleId,
+        type: NotificationType.InvitationReceived,
+        title: "You have been invited to a circle",
+        body: $"Assalamu alaikum {invitedUser.Name}, you have been invited to join the circle \"{circle.Name}\". Please check your invitations.");
 
-        var invitedUser = await _userRepository.GetByPhoneAsync(phoneNumber)
-            ?? throw new KeyNotFoundException($"No user found with phone number '{phoneNumber}'.");
-
-        var circle = await _circleRepository.GetByIdAsync(circleId)
-            ?? throw new KeyNotFoundException($"Circle with id '{circleId}' not found.");
-
-        var invitation = new CircleInvitation
-        {
-            CircleId = circleId,
-            InvitedById = imamId,
-            InvitedUserId = invitedUser.Id,
-            Status = InvitationStatus.Pending
-        };
-
-        var created = await _repository.CreateAsync(invitation);
-
-        // US-05: Invited user receives a notification
-        await _notificationService.SendAsync(
-            userId: invitedUser.Id,
-            circleId: circleId,
-            type: NotificationType.InvitationReceived,
-            title: "You have been invited to a circle",
-            body: $"Assalamu alaikum {invitedUser.Name}, you have been invited to join the circle \"{circle.Name}\". Please check your invitations.");
-
-        return created;
-    }
-
+    return created;
+}
     public async Task<List<CircleInvitation>> GetPendingInvitationsAsync(Guid userId)
     {
         if (userId == Guid.Empty)
