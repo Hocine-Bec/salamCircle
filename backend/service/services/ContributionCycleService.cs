@@ -32,7 +32,8 @@ public class ContributionCycleService : IContributionCycleService
         if (circleId == Guid.Empty)
             throw new ArgumentException("Circle id cannot be empty.");
 
-        if (!await _circleMemberRepository.IsMemberAsync(circleId, requestingUserId))
+        // ⚠️ fix: use IsActiveMemberAsync
+        if (!await _circleMemberRepository.IsActiveMemberAsync(circleId, requestingUserId))
             throw new KeyNotFoundException($"Requesting user '{requestingUserId}' is not a member of circle '{circleId}'.");
 
         var cycle = await _cycleRepository.GetActiveByCircleIdAsync(circleId)
@@ -45,6 +46,10 @@ public class ContributionCycleService : IContributionCycleService
     {
         if (circleId == Guid.Empty)
             throw new ArgumentException("Circle id cannot be empty.");
+
+        // ⚠️ fix: was missing member check entirely — any user could call this
+        if (!await _circleMemberRepository.IsActiveMemberAsync(circleId, requestingUserId))
+            throw new KeyNotFoundException($"Requesting user '{requestingUserId}' is not a member of circle '{circleId}'.");
 
         return await _cycleRepository.GetByCircleIdAsync(circleId);
     }
@@ -90,7 +95,7 @@ public class ContributionCycleService : IContributionCycleService
 
         var created = await _cycleRepository.CreateAsync(nextCycle);
 
-        // Reset pause flags for all active members at the start of a new cycle (US-24)
+        // Reset pause flags for all active/paused members at start of new cycle (US-24)
         var allMembers = await _circleMemberRepository.GetByCircleIdAsync(circleId);
         foreach (var member in allMembers.Where(m => m.Status == MemberStatus.Active || m.Status == MemberStatus.Paused))
         {
@@ -99,7 +104,7 @@ public class ContributionCycleService : IContributionCycleService
             await _circleMemberRepository.UpdateAsync(member);
         }
 
-        // Determine whose turn it is this cycle and notify them (US-11 / ContributionDue)
+        // Notify members whose turn it is this cycle
         var activeMembers = allMembers
             .Where(m => m.Status == MemberStatus.Active)
             .OrderBy(m => m.QueuePosition)
